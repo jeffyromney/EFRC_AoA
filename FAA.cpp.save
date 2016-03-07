@@ -1,0 +1,150 @@
+#include <wiringPi.h>
+#include <stdio.h> 
+#include<cmath> 
+#include <wiringPiI2C.h> 
+#include <time.h>
+
+int loopCount = 0;
+int ac1; 
+int ac2; 
+int ac3; 
+unsigned int ac4; 
+unsigned int ac5; 
+unsigned int ac6; 
+int b1; 
+int b2; 
+int mb; 
+int mc; 
+int md; 
+float pressurepsi; 
+float altitudefeet; 
+float temperaturec;
+int ver = 142;
+
+
+int press_address = 40; //1001000 written as decimal number 
+int reading = 0; 
+int mask = 63; //(0 0 1 1 1 1 1 1 ) 
+int maskstatus = 192; //(1 1 0 0 0 0 0 0 ) 
+int Status; 
+float deltapressure; 
+float deltapressure1;
+float deltapressure2;
+
+float pfwdnoload, p45noload; 
+float pfwd, p45; 
+float pfwd_p45, Alpha; // pfwd_p45 is Pfwd/P45 
+float pfwdcorr, p45corr, Dtarepfwd,Dtarep45,deltanoloadpfwd; 
+float deltanoloadp45, psi_count;
+float A, B;
+
+
+int led13 = 13; 
+int num1 = 0; 
+int led = 1;
+
+int unit = 1; // 1 = unit1 selected, 2 = unit2 selected
+int pressFD;
+long b5;
+
+const int unit1 = 0;
+const int unit2 = 1;
+unsigned long cT ;
+ eT ;
+time_t pT ;
+
+
+float calcAltitude(float pressure){
+  float A = pressure/101325;
+  float B = 1/5.25588;
+  float C = pow(A,B);
+  C = 1 - C;
+  C = C /0.0000225577; 
+  return C;
+}
+
+float MS4525Getpressure(int unit){
+  int reading = wiringPiI2CRead(pressFD);
+  reading = reading & mask;
+  reading = reading << 8;
+  reading |= wiringPiI2CRead(pressFD);
+  return (float)reading;
+}
+
+void setup(){
+  pT = millis();
+  wiringPiSetup();
+  pressFD = wiringPiI2CSetup (0x28) ;
+  pinMode (unit1, OUTPUT); // set pin 8 control for sensor 1
+  pinMode (unit2, OUTPUT); // set pin 9 control for sensor 2
+  digitalWrite( unit1, LOW); // set both units off line
+  digitalWrite( unit2, LOW);
+  
+  A = -16.908083; // These values must be adjusted for individual
+  B = 42.415008; // probes and probe locations
+
+  pfwdnoload = 8162.9; //counts Adjust these values for
+  p45noload = 8186.6; //counts the individual sensors
+
+
+}
+
+
+void loop(){ // Main loop {
+//  if( loopCount++ >= 100 )
+//  {
+//    loopCount = 0;
+    cT = millis();
+    eT = cT - pT;
+    eT *= 1000.0;
+    pT = cT;
+//    float hz = 100/eT;
+//    printf(", %f",hz);
+    printf(", %d", cT);
+//  }
+//    delay(1);
+
+  float temperature = 20; //bmp085GetTemperature(bmp085ReadUT()); //MUST be called first
+  float pressure = 101325; //bmp085GetPressure(bmp085ReadUP());
+  float atm = pressure / 101325; // "Standard Atmosphere Sea Level Pressure"
+  float altitude = calcAltitude(pressure); // Uncompensated calculation 
+
+  pressurepsi = pressure * 0.000145037738; // convert from Pa to psi
+  altitudefeet = altitude * 3.280839895; // convert altitude from meters 
+ 
+
+
+  digitalWrite(unit1,HIGH );
+//  delay (5) ;
+  unit=1;
+  float pfwd = MS4525Getpressure(unit); // Get Differential Pressure from unit 1
+  //printf("%f,\t",pfwd);
+  digitalWrite( unit1, LOW);
+//  delay (5) ;
+
+  pfwdcorr = pfwd - pfwdnoload; // Account for no load
+
+  digitalWrite(unit2,HIGH );
+//  delay (5) ;
+  unit=2;
+  float p45 = MS4525Getpressure(unit); // Get Differential Pressure from unit 2
+  //printf("%f\n",p45);
+  digitalWrite( unit2, LOW);
+//  delay (5) ;
+
+  p45corr = p45 - p45noload; // Account for noload
+
+  digitalWrite(unit2,LOW);
+  pfwd_p45 = pfwdcorr/p45corr;
+  Alpha = A*(pfwd_p45) + B;
+  printf("\n%f",Alpha);
+
+}
+
+
+int main(void){
+  setup();
+  while(true){
+    loop();
+  }
+}
