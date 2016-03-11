@@ -61,7 +61,7 @@ int latestRead;
 
 int main(){
 
-  gpsFD = open("/dev/ttyACM1", O_RDWR | O_NOCTTY | O_NDELAY);
+  gpsFD = open("/dev/ttyACM0", O_RDWR | O_NOCTTY | O_NDELAY);
   if(gpsFD == -1)
     printf(" COMPORT FAILED TO OPEN ");
 

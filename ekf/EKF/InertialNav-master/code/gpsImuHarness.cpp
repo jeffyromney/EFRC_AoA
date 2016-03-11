@@ -450,8 +450,7 @@ int main(int argc, char *argv[]){
 			
 			//printf("\nvelx3, posx3, eulx3, times: %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %lu", (double)_ekf->states[4], (double)_ekf->states[5], (double)_ekf->states[6], (double)_ekf->states[7], (double)_ekf->states[8], (double)_ekf->states[9], eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg, _ekf->dtIMU, cT);
 			
-			printf("\nvelx3, posx3, eulx3, times: %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %lu", (double)_ekf->velNED[0], (double)_ekf->velNED[1], (double)_ekf->velNED[2], (double)_ekf->posNE[0], (double)_ekf->posNE[1], (double)_ekf->hgtMea, eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg, _ekf->dtIMU, cT);
-		
+			printf("\nvelx3, posx3, eulx3, times: %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %lu : %f %f", (double)_ekf->velNED[0], (double)_ekf->velNED[1], (double)_ekf->velNED[2], (double)_ekf->posNE[0], (double)_ekf->posNE[1], (double)_ekf->hgtMea, eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg, _ekf->dtIMU, cT, _ekf->gpsLat/deg2rad, _ekf->gpsLon/deg2rad);
 
 
 			//* Output Info and code commented out
@@ -569,7 +568,7 @@ void readGpsData(){
 		_ekf->gpsLat = deg2rad*inputData.lat;
 		_ekf->gpsLon = deg2rad*inputData.lng;//; - M_PI;
 		_ekf->gpsHgt = inputData.alt;
-		
+
 		newDataGps = true;//(inputData.status > 2);
 	}
 }
