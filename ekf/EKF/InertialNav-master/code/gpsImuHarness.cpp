@@ -28,6 +28,29 @@
 #define rad2deg 57.295780f
 #define pi 3.141592657f
 
+
+
+
+
+
+float windowSize = 15.0;
+int filterIndex = 0;
+
+float sum0 = 0;
+float sum1 = 0;
+float sum2 = 0;
+
+float window0[15];
+float window1[15];
+float window2[15];
+
+float filtered0, filtered1, filtered2;
+
+
+
+
+
+
 //Function Prototypes
 void readIMUData();
 void readGpsData();
@@ -184,11 +207,11 @@ int main(int argc, char *argv[]){
 			signal (i, signalHandler);
 	}
 	imuFD = wiringPiI2CSetup (imu_address);
-	
+
 	wiringPiI2CWriteReg8(imuFD,0x3D,00); // set IMU to CONFIG operation mode
 	wiringPiI2CWriteReg8(imuFD,0x3B,00); // set Units
 	wiringPiI2CWriteReg8(imuFD,0x3D,11); // set IMU to NDOF_FMC_OFF operation mode
-	
+
 	gpsFD = open("/dev/ttyACM0", O_RDWR | O_NOCTTY | O_NDELAY);
     if(gpsFD == -1)
         printf(" GPS COMPORT FAILED TO OPEN ");
@@ -213,7 +236,7 @@ int main(int argc, char *argv[]){
 
 	// Launch GPS Parser Thread
 	std::thread gpsParserThread(gpsParser);
-	
+
     // Instantiate EKF
     _ekf = new AttPosEKF();
 
@@ -222,16 +245,16 @@ int main(int argc, char *argv[]){
     readTimingData();
 
     float dt = 0.0f; // time lapsed since last covariance prediction
-	
+
 	_ekf->useCompass = true;
 	_ekf->useGPS = true;
     _ekf->useAirspeed = false;
     _ekf->useRangeFinder = false;
     _ekf->useOpticalFlow = false;
-	
+
 	//forever loop
     while (true) {
-		
+
 		if(triggered > 0){
 			printf("\n\n SIGNAL TRIGGERED: %d\n\n",triggered);
 			triggered = 0;
@@ -240,7 +263,7 @@ int main(int argc, char *argv[]){
 		// Set Current Time
 		cT = millis();
         pT = cT;
-		
+
 		//Read in Sensor Data
 		readIMUData();
 		readGpsData();
@@ -302,7 +325,7 @@ int main(int argc, char *argv[]){
 			// Convert GPS measurements to Pos NE, hgt and Vel NED
 			calcvelNED(_ekf->velNED, gpsCourse, gpsGndSpd, gpsVelD);
 			calcposNED(posNED, _ekf->gpsLat, _ekf->gpsLon, _ekf->gpsHgt, _ekf->latRef, _ekf->lonRef, _ekf->hgtRef);
-			
+
 			_ekf->hgtMea = _ekf->gpsHgt - _ekf->hgtRef;
 			_ekf->posNE[0] = posNED[0];
 			_ekf->posNE[1] = posNED[1];
@@ -447,10 +470,35 @@ int main(int argc, char *argv[]){
 		if (cT - pOutputT >= outputPeriod){
 			pOutputT = cT;
 			//printf("\naccx3, gyrx3, magx3: %8.4f, %8.4f, %8.4f \t %8.4f, %8.4f, %8.4f \t %8.4f, %8.4f, %8.4f", _ekf->accel.x, _ekf->accel.y, _ekf->accel.z, _ekf->angRate.x, _ekf->angRate.y, _ekf->angRate.z, _ekf->magData.x, _ekf->magData.y, _ekf->magData.z);
-			
+
 			//printf("\nvelx3, posx3, eulx3, times: %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %lu", (double)_ekf->states[4], (double)_ekf->states[5], (double)_ekf->states[6], (double)_ekf->states[7], (double)_ekf->states[8], (double)_ekf->states[9], eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg, _ekf->dtIMU, cT);
-			
-			printf("\nvelx3, posx3, eulx3, times: %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %lu : %f %f", (double)_ekf->velNED[0], (double)_ekf->velNED[1], (double)_ekf->velNED[2], (double)_ekf->posNE[0], (double)_ekf->posNE[1], (double)_ekf->hgtMea, eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg, _ekf->dtIMU, cT, _ekf->gpsLat/deg2rad, _ekf->gpsLon/deg2rad);
+			filterIndex = (filterIndex + 1)%15;
+
+			sum0 -= window0[filterIndex];
+			window0[filterIndex] = _ekf->angRate.x;
+			sum0 += window0[filterIndex];
+			filtered0 = sum0 / windowSize;
+
+			sum1 -= window1[filterIndex];
+			window1[filterIndex] =  _ekf->angRate.y;
+			sum1 += window1[filterIndex];
+			filtered1 = sum1 / windowSize;
+
+			sum2 -= window2[filterIndex];
+			window2[filterIndex] =  _ekf->angRate.z;
+			sum2 += window2[filterIndex];
+			filtered2 = sum2 / windowSize;
+
+			printf("\nvel,pos,eul,t,gps,ahrs: %8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%lu,%f,%f,% 8.4f,% 8.4f,% 8.4f",
+				(double)_ekf->velNED[0], (double)_ekf->velNED[1], (double)_ekf->velNED[2],
+				(double)_ekf->posNE[0], (double)_ekf->posNE[1], (double)_ekf->hgtMea,
+				eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg,
+				_ekf->dtIMU, cT,
+				_ekf->gpsLat*rad2deg, _ekf->gpsLon*rad2deg,
+				ahrsEul[0], ahrsEul[1], ahrsEul[2]
+				//filtered0, filtered1, filtered2,
+				//(double)_ekf->states[10], (double)_ekf->states[11], (double)_ekf->states[12]
+				);
 
 
 			//* Output Info and code commented out
@@ -491,7 +539,7 @@ int main(int argc, char *argv[]){
 				// (_ekf->useAirspeed) ? "USE_AIRSPD" : "IGN_AIRSPD",
 				// (_ekf->useCompass) ? "USE_COMPASS" : "IGN_COMPASS");
 		}
-	
+
 		if(triggered > 0){
 			printf("\n\n SIGNAL TRIGGERED: %d\n\n",triggered);
 			triggered = 0;
@@ -506,10 +554,11 @@ int main(int argc, char *argv[]){
 void readIMUData(){
 	while(cT - pImuT <= imuPeriod){
 		cT = millis();
+                usleep(1000);
 	}
 	float accelData [3];
 	float gyroData [3];
-	
+
 	//Read Accel
 	int baseAddr = 0x08;
 	for (int i=0;i<3;i++){
@@ -522,7 +571,7 @@ void readIMUData(){
 			reading -= 0x8000;
 		accelData[i] = ((float)reading)/100.0;///16.0;
 	}
-	
+
 	//Read Gyro
 	baseAddr = 0x14;
 	for (int i=0;i<3;i++){
