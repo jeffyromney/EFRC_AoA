@@ -638,10 +638,10 @@ void readIMUData(){
 	}
 	//printf(", %lu",pImuT);
 	_ekf->dtIMU     = 0.001f*(cT - pImuT);
-	_ekf->angRate.x = gyroData[1]*deg2rad;
+	_ekf->angRate.x = -gyroData[1]*deg2rad;
 	_ekf->angRate.y = gyroData[0]*deg2rad;
-	_ekf->angRate.z = gyroData[2]*deg2rad;
-	_ekf->accel.x   = accelData[1];
+	_ekf->angRate.z = -gyroData[2]*deg2rad;
+	_ekf->accel.x   = -accelData[1];
 	_ekf->accel.y   = accelData[0];
 	_ekf->accel.z   = accelData[2];
 	_ekf->dAngIMU = 0.5f*(_ekf->angRate + lastAngRate)*_ekf->dtIMU;
@@ -700,12 +700,12 @@ void readMagData(){
 			magDatas[i] = ((float)readingDat)/16.0;
 			magBias[i] = ((float)readingOff)/16.0;
 		}
-		_ekf->magData.x = magDatas[1];
-		_ekf->magBias.x = magBias[1];
+		_ekf->magData.x = -magDatas[1];
+		_ekf->magBias.x = -magBias[1];
 		_ekf->magData.y = magDatas[0];
 		_ekf->magBias.y = magBias[0];
-		_ekf->magData.z = magDatas[2];
-		_ekf->magBias.z = magBias[2];
+		_ekf->magData.z = -magDatas[2];
+		_ekf->magBias.z = -magBias[2];
 	}
 	else
 		newDataMag = false;
