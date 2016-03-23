@@ -33,6 +33,9 @@
 #define rad2deg 57.295780f
 #define pi 3.141592657f
 
+#define ACCEL_OFFSET_X 0.1516
+#define ACCEL_OFFSET_Y -0.0149
+#define ACCEL_OFFSET_Z 9.83109
 
 
 
@@ -108,6 +111,8 @@ struct gpsDataStruct {
 	unsigned long time;
 	float course;
 	float gndSpd;
+	float velN;
+	float velE;
 	float velD;
 	int status;
 };
@@ -169,6 +174,39 @@ int gpsLatestRead = 0;
 
 
 
+//Complementary filter stuff
+typedef struct Filter_Data_t{
+  bool useGPS;
+  float dTi;
+  float dTg;
+  float euler[3];
+  float accel[3];
+  float lat;
+  float lon;
+  float alt;
+  float ned[3];
+  float vNed[3];
+}Filter_Data_t;
+
+#define FILTER_DATA_INIT {\
+false,\
+0.0,\
+0.0,\
+{0.0,0.0,0.0},\
+{0.0,0.0,0.0},\
+0.0,\
+0.0,\
+0.0,\
+{0.0,0.0,0.0},\
+{0.0,0.0,0.0},\
+}
+void runCompFilt(Filter_Data_t *data, Filter_Data_t *output);
+void rotateAccel(float euler[3], float accel[3], float outData[3]);
+Filter_Data_t pData;
+Filter_Data_t readData;
+Filter_Data_t compOut;
+bool compFiltInit = false;
+
 // Timing Variables
 unsigned long cT = 0;
 unsigned long eT = 0;
@@ -213,6 +251,7 @@ void signalHandler( int signum )
 }
 
 int main(int argc, char *argv[]){
+    pData = FILTER_DATA_INIT;
 	for (int i=1;i<30;i++){
 		if (i != 2)
 			signal (i, signalHandler);
@@ -299,10 +338,15 @@ int main(int argc, char *argv[]){
 		readGpsData();
 		readMagData();
 		readAhrsData();
-	        pT = cT;
+                pT = cT;
 
-        	// Apply dtIMU
-        	//_ekf->dtIMU  = 0.001f*(cT - pT);
+        // Apply dtIMU
+//        _ekf->dtIMU     = 0.001f*(cT - pT);
+		if(!compFiltInit && readData.lat > 0.0){
+			pData = readData;
+			compFiltInit = true;
+		}
+		runCompFilt(&readData, &compOut);
 
 		// Initialise states, covariance and other data
 		if ((cT > msecAlignTime) && !_ekf->statesInitialised && (_ekf->GPSstatus >= 3)){
@@ -520,13 +564,15 @@ int main(int argc, char *argv[]){
 			sum2 += window2[filterIndex];
 			filtered2 = sum2 / windowSize;
 
-			printf("\nvel,pos,eul,t,gps,ahrs: %8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%lu,%f,%f,% 8.4f,% 8.4f,% 8.4f",
+			printf("\nvel,pos,eul,t,gps,ahrs: %8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%lu,%f,%f,% 8.4f,% 8.4f,% 8.4f,%f,%f,%6.2f,%8.4f",
 				(double)_ekf->velNED[0], (double)_ekf->velNED[1], (double)_ekf->velNED[2],
 				(double)_ekf->posNE[0], (double)_ekf->posNE[1], (double)_ekf->hgtMea,
 				eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg,
 				_ekf->dtIMU, cT,
 				_ekf->gpsLat*rad2deg, _ekf->gpsLon*rad2deg,
-				ahrsEul[0], ahrsEul[1], ahrsEul[2]
+				_ekf->accel.x,_ekf->accel.y,_ekf->accel.z,
+				//ahrsEul[0], ahrsEul[1], ahrsEul[2],
+				compOut.lat*rad2deg, compOut.lon*rad2deg, compOut.alt, compOut.vNed[0]
 				//filtered0, filtered1, filtered2,
 				//(double)_ekf->states[10], (double)_ekf->states[11], (double)_ekf->states[12]
 				);
@@ -534,24 +580,24 @@ int main(int argc, char *argv[]){
 
 
 			char writeBuffer [255];
-			int numWritten = sprintf(writeBuffer,"\nvel,pos,eul,t,gps,ahrs: %8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%lu,%f,%f,% 8.4f,% 8.4f,% 8.4f",
-                                (double)_ekf->velNED[0], (double)_ekf->velNED[1], (double)_ekf->velNED[2],
-                                (double)_ekf->posNE[0], (double)_ekf->posNE[1], (double)_ekf->hgtMea,
-                                eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg,
-                                _ekf->dtIMU, cT,
-                                _ekf->gpsLat*rad2deg, _ekf->gpsLon*rad2deg,
-                                ahrsEul[0], ahrsEul[1], ahrsEul[2]
-                                //filtered0, filtered1, filtered2,
-                                //(double)_ekf->states[10], (double)_ekf->states[11], (double)_ekf->states[12]
-                                );
+			 int numWritten = sprintf(writeBuffer, "\nvel,pos,eul,t,gps,ahrs: %8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%lu,%f,%f,% 8.4f,% 8.4f,% 8.4f,%f,%f,%6.2f,%8.4f",
+				(double)_ekf->velNED[0], (double)_ekf->velNED[1], (double)_ekf->velNED[2],
+				(double)_ekf->posNE[0], (double)_ekf->posNE[1], (double)_ekf->hgtMea,
+				eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg,
+				_ekf->dtIMU, cT,
+				_ekf->gpsLat*rad2deg, _ekf->gpsLon*rad2deg,
+				_ekf->accel.x,_ekf->accel.y,_ekf->accel.z,
+				//ahrsEul[0], ahrsEul[1], ahrsEul[2],
+				compOut.lat*rad2deg, compOut.lon*rad2deg, compOut.alt, compOut.vNed[0]
+				//filtered0, filtered1, filtered2,
+				//(double)_ekf->states[10], (double)_ekf->states[11], (double)_ekf->states[12]
+				);
 			try{
 			    write(sockfd,&writeBuffer,numWritten);
 			}
 		        catch(int e){
 			    printf("\nException Thrown: %d\n",e);
 		        }
-
-
 
 
 			//* Output Info and code commented out
@@ -649,12 +695,18 @@ void readIMUData(){
 	_ekf->dVelIMU = 0.5f*(_ekf->accel + lastAccel)*_ekf->dtIMU;
 	lastAccel = _ekf->accel;
 	pImuT = cT;
+
+	readData.accel[0] = _ekf->accel.x;
+	readData.accel[1] = _ekf->accel.y;
+	readData.accel[2] = _ekf->accel.z;
+	readData.dTi = _ekf->dtIMU;
 }
 
 
 void readGpsData(){
 	if(gpsInputQueue.empty())
 		newDataGps = false;
+		readData.useGPS = false;
 		// printf("\nBLAH6\n");
 	while(!gpsInputQueue.empty()){
 		// printf("\nBLAH7\n");
@@ -672,6 +724,14 @@ void readGpsData(){
 		_ekf->gpsHgt = inputData.alt;
 
 		newDataGps = true;//(inputData.status > 2);
+		readData.useGPS = true;
+		readData.lat = _ekf->gpsLat;
+		readData.lon = _ekf->gpsLon;
+		readData.alt = inputData.alt;
+		readData.vNed[0] = inputData.velN;
+		readData.vNed[1] = inputData.velE;
+		readData.vNed[2] = inputData.velD;
+		readData.dTg = gpsDt * 0.001f;
 	}
 }
 
@@ -868,6 +928,8 @@ void gpsParser(){
 		  gpsDataIn.time = cT;
 		  gpsDataIn.course = ((float)inData.parsed.headMot)*1E-5;
 		  gpsDataIn.gndSpd = ((float)inData.parsed.gSpeed)*1E-3;
+		  gpsDataIn.velN = ((float)inData.parsed.velN)*1E-3;
+		  gpsDataIn.velE = ((float)inData.parsed.velE)*1E-3;
 		  gpsDataIn.velD = ((float)inData.parsed.velD)*1E-3;
 		  gpsDataIn.status = (inData.parsed.fixType);
 		  // printf("\nBLAH10\n");
@@ -892,3 +954,94 @@ void gpsParser(){
     }//end switch
   }//end while
 }//end gpsReadFunction
+
+
+void rotateAccel(float euler[3], float accel[3], float outData[3]){
+	float rotMat[3][3];
+//	static float outData[3];
+
+	rotMat[0][0] = cos(euler[2]) * cos(euler[1]);
+	rotMat[0][1] = cos(euler[1]) * sin(euler[2]);
+        rotMat[0][2] = -sin(euler[1]);
+	rotMat[1][0] = cos(euler[2]) * sin(euler[0]) * sin(euler[1]) - cos(euler[0]) * sin(euler[2]);
+        rotMat[1][1] = cos(euler[0]) * cos(euler[2]) + sin(euler[0]) * cos(euler[2]) * sin(euler[1]);
+	rotMat[1][2] = cos(euler[1]) * sin(euler[1]);
+	rotMat[2][0] = sin(euler[0]) * sin(euler[2]) + cos(euler[0]) * cos(euler[2]) * sin(euler[1]);
+	rotMat[2][1] = cos(euler[0]) * sin(euler[2]) * sin(euler[1]) - cos(euler[2]) * sin(euler[0]);
+	rotMat[2][2] = cos(euler[0]) * cos(euler[1]);
+
+
+
+	outData[0] = rotMat[0][0] * accel[0] + rotMat[0][1] * accel[1] + rotMat[0][2] * accel[2];
+	outData[1] = rotMat[1][0] * accel[0] + rotMat[1][1] * accel[1] + rotMat[1][2] * accel[2];
+	outData[2] = rotMat[2][0] * accel[0] + rotMat[2][1] * accel[1] + rotMat[2][2] * accel[2];
+
+//	return outData;
+
+}
+
+
+
+void runCompFilt(Filter_Data_t *data, Filter_Data_t *output){
+  float gConst;
+  float iConst;
+  float K = 3.0;
+  Filter_Data_t deltas;
+
+
+  if(data->useGPS){
+    iConst = 1;
+    gConst = 0;
+  }
+  else{
+    iConst = K * (data->dTi/data->dTg);
+    if(iConst > 1)
+      iConst = 1;
+    if(iConst < 0)
+      iConst = 0;
+    gConst = 1 - iConst;
+  }
+
+  double m_per_deg_lat = 111132.954 - 559.822 * cos( 2 * data->lat ) + 1.175 * cos( 4 * data->lat);
+  double m_per_deg_lon = 111132.954 * cos ( data->lat );
+
+  deltas.lat = data->lat - pData.lat;
+  deltas.lon = data->lon - pData.lon;
+  deltas.alt = data->alt - pData.alt;
+
+  deltas.ned[0] = deltas.lat * m_per_deg_lat;
+  deltas.ned[1] = deltas.lon * m_per_deg_lon;
+  deltas.ned[2] = -deltas.alt;
+
+
+  float ecefAccel[3];
+  float dVNed[3];
+  float dNed[3];
+  //account for accel offsets
+  data->euler[0] -= ACCEL_OFFSET_X;
+  data->euler[1] -= ACCEL_OFFSET_Y;
+  data->euler[2] -= ACCEL_OFFSET_Z;
+  rotateAccel(data->euler, data->accel,ecefAccel);
+  dVNed[0] = ecefAccel[0] * data->dTi;
+  dVNed[1] = ecefAccel[1] * data->dTi;
+  dVNed[2] = -ecefAccel[2] * data->dTi;
+  dNed[0] = dVNed[0] * data->dTi;
+  dNed[1] = dVNed[1] * data->dTi;
+  dNed[2] = -dVNed[2] * data->dTi;
+
+  output->ned[0] = pData.ned[0] + (deltas.ned[0] * gConst + dNed[0] * iConst);
+  output->ned[1] = pData.ned[1] + (deltas.ned[1] * gConst + dNed[1] * iConst);
+  output->ned[2] = pData.ned[2] + (deltas.ned[2] * gConst + dNed[2] * iConst);
+  output->vNed[0] = pData.vNed[0] + (deltas.vNed[0] * gConst + dVNed[0] * iConst);
+  output->vNed[1] = pData.vNed[1] + (deltas.vNed[1] * gConst + dVNed[1] * iConst);
+  output->vNed[2] = pData.vNed[2] + (deltas.vNed[2] * gConst + dVNed[2] * iConst);
+//  output.euler = NULL;
+//  output.accel = NULL;
+//  output.useGPS = NULL;
+  output->lat = pData.lat + (deltas.lat * gConst + (dNed[0] / m_per_deg_lat) * iConst);
+  output->lon = pData.lon + (deltas.lon * gConst + (dNed[1] / m_per_deg_lon) * iConst);
+  output->alt = -output->ned[2];
+//  output.dTi = NULL;
+//  output.dTg = NULL;
+
+}
