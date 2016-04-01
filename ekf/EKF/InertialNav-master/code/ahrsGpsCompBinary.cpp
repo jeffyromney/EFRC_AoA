@@ -17,7 +17,7 @@
 #include <csignal>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
+#include "msgDefs.h"
 
 
 
@@ -250,6 +250,8 @@ std::string inStr = std::string();
 
 //EKF object
 AttPosEKF   *_ekf;
+
+
 
 
 void error(const char *msg)
@@ -642,15 +644,33 @@ int main(int argc, char *argv[]){
 				//iConst, gConst, testVal
 				readData.lat*rad2deg, readData.lon*rad2deg, readData.alt*rad2deg
 				);
+
+
+			OutMessageU_t msgOut = {0x0A,0xA0,\
+				(double)_ekf->dtIMU,(double)cT,\
+				(double)_ekf->velNED[0],(double)_ekf->velNED[1],(double)_ekf->velNED[2],\
+				(double)_ekf->posNE[0], (double)_ekf->posNE[1],(double)_ekf->hgtMea,\
+				(double)eulerEst[0]*rad2deg, (double)eulerEst[1]*rad2deg, (double)eulerEst[2]*rad2deg,
+                        	(double)_ekf->accel.x,(double)_ekf->accel.y,(double)_ekf->accel.z,
+                        	(double)_ekf->gpsLat*rad2deg, (double)_ekf->gpsLon*rad2deg, (double)_ekf->gpsHgt,
+                        	(double)compOut.vNed[0], (double)compOut.vNed[1], (double)compOut.vNed[2],
+                        	(double)compOut.ned[0], (double)compOut.ned[1], (double)compOut.ned[2],
+                        	(double)compOut.euler[0]*rad2deg, (double)compOut.euler[1]*rad2deg, (double)compOut.euler[2]*rad2deg,
+                        	(double)compOut.accel[0], (double)compOut.accel[1], (double)compOut.accel[2],
+                        	(double)compOut.lat*rad2deg, (double)compOut.lon*rad2deg, (double)compOut.alt,\
+				(double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (double)readData.alt*rad2deg\
+			};
 			try{
-			    write(sockfd,&writeBuffer,numWritten);
+			    //write(sockfd,&writeBuffer,numWritten);
+			    write(sockfd,&msgOut.data,sizeof(msgOut));
 			}
 		        catch(int e){
 			    printf("\nException Thrown: %d\n",e);
 		        }
+			printf("\n%d",sizeof(msgOut));
 
 			for(int i=0 ; i < numWritten ; i ++ ){
-				std::cout << writeBuffer[i];
+//				std::cout << writeBuffer[i];
 			}
 
 			//* Output Info and code commented out
