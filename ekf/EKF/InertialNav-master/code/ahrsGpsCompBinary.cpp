@@ -252,7 +252,14 @@ std::string inStr = std::string();
 AttPosEKF   *_ekf;
 
 
+typedef struct Imu_Raw_t
+{
+	double accel[3];
+	double gyro[3];
+	double mag[3];
+} Imu_Raw_t;
 
+Imu_Raw_t rawImu;
 
 void error(const char *msg)
 {
@@ -651,14 +658,15 @@ int main(int argc, char *argv[]){
 				(double)_ekf->velNED[0],(double)_ekf->velNED[1],(double)_ekf->velNED[2],\
 				(double)_ekf->posNE[0], (double)_ekf->posNE[1],(double)_ekf->hgtMea,\
 				(double)eulerEst[0]*rad2deg, (double)eulerEst[1]*rad2deg, (double)eulerEst[2]*rad2deg,
-                        	(double)_ekf->accel.x,(double)_ekf->accel.y,(double)_ekf->accel.z,
                         	(double)_ekf->gpsLat*rad2deg, (double)_ekf->gpsLon*rad2deg, (double)_ekf->gpsHgt,
                         	(double)compOut.vNed[0], (double)compOut.vNed[1], (double)compOut.vNed[2],
                         	(double)compOut.ned[0], (double)compOut.ned[1], (double)compOut.ned[2],
                         	(double)compOut.euler[0]*rad2deg, (double)compOut.euler[1]*rad2deg, (double)compOut.euler[2]*rad2deg,
-                        	(double)compOut.accel[0], (double)compOut.accel[1], (double)compOut.accel[2],
                         	(double)compOut.lat*rad2deg, (double)compOut.lon*rad2deg, (double)compOut.alt,\
-				(double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (double)readData.alt*rad2deg\
+				(double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (double)readData.alt*rad2deg,\
+                        	(double)rawImu.accel[0],(double)rawImu.accel[1],(double)rawImu.accel[2],
+                        	(double)rawImu.gyro[0],(double)rawImu.gyro[1],(double)rawImu.gyro[2],
+                        	(double)rawImu.mag[0],(double)rawImu.mag[1],(double)rawImu.mag[2]
 			};
 			try{
 			    //write(sockfd,&writeBuffer,numWritten);
@@ -764,6 +772,13 @@ void readIMUData(){
 	readData.accel[1] = _ekf->accel.y;
 	readData.accel[2] = _ekf->accel.z;
 	readData.dTi = _ekf->dtIMU;
+
+	rawImu.gyro[0]  = _ekf->angRate.x;
+	rawImu.gyro[1]  = _ekf->angRate.y;
+	rawImu.gyro[2]  = _ekf->angRate.z;
+	rawImu.accel[0] = _ekf->accel.x;
+	rawImu.accel[1] = _ekf->accel.y;
+	rawImu.accel[2] = _ekf->accel.z;
 }
 
 
@@ -832,6 +847,9 @@ void readMagData(){
 		readData.mag[0] = magDatas[1];
 		readData.mag[1] = magDatas[0];
 		readData.mag[2] = magDatas[2];
+		rawImu.mag[0] = _ekf->magData.x;
+		rawImu.mag[1] = _ekf->magData.y;
+		rawImu.mag[2] = _ekf->magData.z;
 }
 
 
