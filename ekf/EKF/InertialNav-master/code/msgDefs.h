@@ -15,9 +15,6 @@ typedef struct __attribute__((packed)) OutMessage_t
 	double ekfRoll;
 	double ekfPitch;
 	double ekfYaw;
-	double ekfAccelX;
-	double ekfAccelY;
-	double ekfAccelZ;
 	double ekfLat;
 	double ekfLon;
 	double ekfAlt;
@@ -30,15 +27,21 @@ typedef struct __attribute__((packed)) OutMessage_t
 	double cmpRoll;
 	double cmpPitch;
 	double cmpYaw;
-	double cmpAccelX;
-	double cmpAccelY;
-	double cmpAccelZ;
 	double cmpLat;
 	double cmpLon;
 	double cmpAlt;
 	double gpsLat;
 	double gpsLon;
 	double gpsAlt;
+	double accelX;
+	double accelY;
+	double accelZ;
+	double gyroX;
+	double gyroY;
+	double gyroZ;
+	double magX;
+	double magY;
+	double magZ;
 }OutMessage_t;
 
 typedef union OutMessageU_t
