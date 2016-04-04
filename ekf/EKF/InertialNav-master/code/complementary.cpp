@@ -1,12 +1,11 @@
 #include "complementary.h"
 #include <cstring>
 #include <math.h>
-#include <windows.h>
 
 Complementary::Complementary()
 {
     pData = data = deltas = output = FILTER_DATA_INIT;
-    compFiltInit = false;
+    FiltInit = false;
     //ctor
 }
 
@@ -18,7 +17,7 @@ Complementary::~Complementary()
 void Complementary::InitFilt(Filter_Data_t* inData)
 {
     memcpy(&pData,inData,sizeof(Filter_Data_t));
-    compFiltInit = true;
+    FiltInit = true;
 }
 
 

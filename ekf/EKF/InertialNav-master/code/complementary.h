@@ -45,11 +45,11 @@ class Complementary
         /** Access compFiltInit
          * \return The current value of compFiltInit
          */
-        bool GetcompFiltInit() { return compFiltInit; }
+        bool GetFiltInit() { return FiltInit; }
         /** Set compFiltInit
          * \param val New value to set
          */
-        void SetcompFiltInit(bool val) { compFiltInit = val; }
+        void SetFiltInit(bool val) { FiltInit = val; }
         /** Access gConst
          * \return The current value of gConst
          */
@@ -80,7 +80,7 @@ class Complementary
         void rotateAccel(float euler[3], float accel[3], float outData[3]);
     protected:
     private:
-        bool compFiltInit; //!< Member variable "compFiltInit"
+        bool FiltInit; //!< Member variable "compFiltInit"
         float gConst; //!< Member variable "gConst"
         float iConst; //!< Member variable "iConst"
 };

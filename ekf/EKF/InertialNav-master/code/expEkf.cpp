@@ -168,7 +168,7 @@ int gpsNumRead = 0;
 int gpsLatestRead = 0;
 
 //Complementary Filters
-#define NUM_FILTS 11;
+#define NUM_FILTS 11
 Complementary *filters[NUM_FILTS];
 Filter_Data_t readData;
 
@@ -255,8 +255,6 @@ void signalHandler( int signum )
 
 int main(int argc, char *argv[])
 {
-    pData = FILTER_DATA_INIT;
-    compOut = FILTER_DATA_INIT;
     //signal (11, signalHandler);
     signal (SIGPIPE, signalHandler);
 
@@ -318,7 +316,7 @@ int main(int argc, char *argv[])
     _ekf = new AttPosEKF();
 
     // Instantiate Complementary Filters
-    for(i=1;i<NUM_FILTS;i++){
+    for(int i=1;i<NUM_FILTS;i++){
         filters[i] = new Complementary();
         filters[i]->SetgConst(0.1*(float)i);
         filters[i]->SetiConst(1 - filters[i]->GetgConst());
@@ -356,14 +354,14 @@ int main(int argc, char *argv[])
 
         // Apply dtIMU
 //        _ekf->dtIMU     = 0.001f*(cT - pT);
-        for (int i=0; i<NUM_FILTERS; i++)
+        for (int i=0; i<NUM_FILTS; i++)
         {
 
-            if(!filters[i]->FiltInit && readData.lat > 0.0)
+            if(!filters[i]->GetFiltInit() && readData.lat > 0.0)
             {
-                filters[i]->InitFilt();
+                filters[i]->InitFilt(&readData);
             }
-            else if(filters[i]->FiltInit)
+            else if(filters[i]->GetFiltInit())
             {
                 filters[i]->runCompFilt(&readData);
             }
@@ -608,7 +606,7 @@ int main(int argc, char *argv[])
             //	_ekf->gpsLat*rad2deg, _ekf->gpsLon*rad2deg,
             //	_ekf->accel.x,_ekf->accel.y,_ekf->accel.z,
             //	//ahrsEul[0], ahrsEul[1], ahrsEul[2],
-            //	compOut.lat*rad2deg, compOut.lon*rad2deg, compOut.alt, compOut.vNed[0]
+            //	filters[5]->output.lat*rad2deg, filters[5]->output.lon*rad2deg, filters[5]->output.alt, filters[5]->output.vNed[0]
             //	//filtered0, filtered1, filtered2,
             //	//(double)_ekf->states[10], (double)_ekf->states[11], (double)_ekf->states[12]
             //	);
@@ -635,11 +633,11 @@ int main(int argc, char *argv[])
                                      eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg,
                                      _ekf->accel.x,_ekf->accel.y,_ekf->accel.z,
                                      _ekf->gpsLat*rad2deg, _ekf->gpsLon*rad2deg, _ekf->gpsHgt,
-                                     compOut.vNed[0], compOut.vNed[1], compOut.vNed[2],
-                                     compOut.ned[0], compOut.ned[1], compOut.ned[2],
-                                     compOut.euler[0]*rad2deg, compOut.euler[1]*rad2deg, compOut.euler[2]*rad2deg,
-                                     compOut.accel[0], compOut.accel[1], compOut.accel[2],
-                                     compOut.lat*rad2deg, compOut.lon*rad2deg, compOut.alt,
+                                     filters[5]->output.vNed[0], filters[5]->output.vNed[1], filters[5]->output.vNed[2],
+                                     filters[5]->output.ned[0], filters[5]->output.ned[1], filters[5]->output.ned[2],
+                                     filters[5]->output.euler[0]*rad2deg, filters[5]->output.euler[1]*rad2deg, filters[5]->output.euler[2]*rad2deg,
+                                     filters[5]->output.accel[0], filters[5]->output.accel[1], filters[5]->output.accel[2],
+                                     filters[5]->output.lat*rad2deg, filters[5]->output.lon*rad2deg, filters[5]->output.alt,
                                      //iConst, gConst, testVal
                                      readData.lat*rad2deg, readData.lon*rad2deg, readData.alt*rad2deg
                                     );
@@ -651,10 +649,10 @@ int main(int argc, char *argv[])
                                     (float)_ekf->posNE[0], (float)_ekf->posNE[1],(float)_ekf->hgtMea,\
                                     (float)eulerEst[0]*rad2deg, (float)eulerEst[1]*rad2deg, (float)eulerEst[2]*rad2deg,
                                     (double)_ekf->gpsLat*rad2deg, (double)_ekf->gpsLon*rad2deg, (float)_ekf->gpsHgt,
-                                    (float)compOut.vNed[0], (float)compOut.vNed[1], (float)compOut.vNed[2],
-                                    (float)compOut.ned[0], (float)compOut.ned[1], (float)compOut.ned[2],
-                                    (float)compOut.euler[0]*rad2deg, (float)compOut.euler[1]*rad2deg, (float)compOut.euler[2]*rad2deg,
-                                    (double)compOut.lat*rad2deg, (double)compOut.lon*rad2deg, (float)compOut.alt,\
+                                    (float)filters[5]->output.vNed[0], (float)filters[5]->output.vNed[1], (float)filters[5]->output.vNed[2],
+                                    (float)filters[5]->output.ned[0], (float)filters[5]->output.ned[1], (float)filters[5]->output.ned[2],
+                                    (float)filters[5]->output.euler[0]*rad2deg, (float)filters[5]->output.euler[1]*rad2deg, (float)filters[5]->output.euler[2]*rad2deg,
+                                    (double)filters[5]->output.lat*rad2deg, (double)filters[5]->output.lon*rad2deg, (float)filters[5]->output.alt,\
                                     (double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (float)readData.alt*rad2deg,\
                                     (float)rawImu.accel[0],(float)rawImu.accel[1],(float)rawImu.accel[2],
                                     (float)rawImu.gyro[0],(float)rawImu.gyro[1],(float)rawImu.gyro[2],
