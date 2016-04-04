@@ -21,10 +21,10 @@
 
 
 
-
-
 //#include <stdlib.h>
 //#include <cstdlib> // for system() call
+
+
 
 
 
@@ -306,7 +306,7 @@ int main(int argc, char *argv[]){
 	wiringPiI2CWriteReg8(imuFD,0x3B,00); // set Units
 	wiringPiI2CWriteReg8(imuFD,0x3D,11); // set IMU to NDOF_FMC_OFF operation mode
 
-	gpsFD = open("/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00", O_RDWR | O_NOCTTY | O_NDELAY);
+	gpsFD = open("/dev/ttyACM0", O_RDWR | O_NOCTTY | O_NDELAY);
     if(gpsFD == -1)
         printf(" GPS COMPORT FAILED TO OPEN ");
 
@@ -360,11 +360,11 @@ int main(int argc, char *argv[]){
 
     float dt = 0.0f; // time lapsed since last covariance prediction
 
-	_ekf->useCompass = true;
-	_ekf->useGPS = true;
-    _ekf->useAirspeed = false;
-    _ekf->useRangeFinder = false;
-    _ekf->useOpticalFlow = false;
+//	_ekf->useCompass = true;
+//	_ekf->useGPS = true;
+//    _ekf->useAirspeed = false;
+//    _ekf->useRangeFinder = false;
+//    _ekf->useOpticalFlow = false;
     pT = millis();
 	//forever loop
     while (true) {
@@ -391,237 +391,49 @@ int main(int argc, char *argv[]){
 		else if(compFiltInit){
 			runCompFilt(&readData, &compOut);
 		}
-
-		// Initialise states, covariance and other data
-		if ((cT > msecAlignTime) && !_ekf->statesInitialised && (_ekf->GPSstatus >= 3)){
-			calcvelNED(_ekf->velNED, gpsCourse, gpsGndSpd, gpsVelD);
-
-			_ekf->InitialiseFilter(_ekf->velNED, _ekf->gpsLat, _ekf->gpsLon, _ekf->gpsHgt, 0.0f);
-
-		} else if (_ekf->statesInitialised) {
-
-			// Run the strapdown INS equations every IMU update
-			_ekf->UpdateStrapdownEquationsNED();
-			#if 1
-			// debug code - could be turned into a filter monitoring/watchdog function
-			float tempQuat[4];
-			for (uint8_t j=0; j<4; j++) tempQuat[j] = _ekf->states[j];
-			_ekf->quat2eul(eulerEst, tempQuat);
-			for (uint8_t j=0; j<=2; j++) eulerDif[j] = eulerEst[j] - ahrsEul[j];
-			if (eulerDif[2] > M_PI) eulerDif[2] -= 2 * M_PI;
-			if (eulerDif[2] < -M_PI) eulerDif[2] += 2 * M_PI;
-			#endif
-			// store the predicted states for substrequent use by measurement fusion
-			_ekf->StoreStates(cT);
-			// Check if on ground - status is used by covariance prediction
-			bool onground = (((AttPosEKF::sq(_ekf->velNED[0]) + AttPosEKF::sq(_ekf->velNED[1]) + AttPosEKF::sq(_ekf->velNED[2])) < 4.0f) && (_ekf->VtasMeas < 8.0f));
-
-			_ekf->setOnGround(onground);
-			// sum delta angles and time used by covariance prediction
-			_ekf->summedDelAng = _ekf->summedDelAng + _ekf->correctedDelAng;
-			_ekf->summedDelVel = _ekf->summedDelVel + _ekf->dVelIMU;
-			dt += _ekf->dtIMU;
-			// perform a covariance prediction if the total delta angle has exceeded the limit
-			// or the time limit will be exceeded at the next IMU update
-			if ((dt >= (_ekf->covTimeStepMax - _ekf->dtIMU)) || (_ekf->summedDelAng.length() > _ekf->covDelAngMax))
-			{
-				_ekf->CovariancePrediction(dt);
-				_ekf->summedDelAng.zero();
-				_ekf->summedDelVel.zero();
-				dt = 0.0f;
-			}
-
-			// Set global time stamp used by EKF processes
-			_ekf->globalTimeStamp_ms = cT;
-		}
-
-		// Fuse GPS Measurements
-		if (newDataGps){
-			// printf("\nBLAH4\n");
-			// calculate a position offset which is applied to NE position and velocity wherever it is used throughout code to allow GPS position jumps to be accommodated gradually
-			_ekf->decayGpsOffset();
-
-			// Convert GPS measurements to Pos NE, hgt and Vel NED
-			calcvelNED(_ekf->velNED, gpsCourse, gpsGndSpd, gpsVelD);
-			calcposNED(posNED, _ekf->gpsLat, _ekf->gpsLon, _ekf->gpsHgt, _ekf->latRef, _ekf->lonRef, _ekf->hgtRef);
-
-			_ekf->hgtMea = _ekf->gpsHgt - _ekf->hgtRef;
-			_ekf->posNE[0] = posNED[0];
-			_ekf->posNE[1] = posNED[1];
-			 // set fusion flags
-			_ekf->fuseVelData = true;
-			_ekf->fusePosData = true;
-			_ekf->fuseHgtData = false;
-			// recall states stored at time of measurement after adjusting for delays
-			_ekf->RecallStates(_ekf->statesAtVelTime, (cT - msecVelDelay));
-			_ekf->RecallStates(_ekf->statesAtPosTime, (cT - msecPosDelay));
-			_ekf->RecallStates(_ekf->statesAtHgtTime, (cT - msecHgtDelay));
-			// run the fusion step
-			_ekf->FuseVelposNED();
-			//printf("FuseVelposNED at time = %lu \n", cT);
-		}
-		else{
-			// printf("\nBLAH5\n");
-			_ekf->fuseVelData = false;
-			_ekf->fusePosData = false;
-			_ekf->fuseHgtData = false;
-		}
-		calcposNED(posNED, _ekf->gpsLat, _ekf->gpsLon, _ekf->gpsHgt, _ekf->latRef, _ekf->lonRef, _ekf->hgtRef);
-
-		_ekf->posNE[0] = posNED[0];
-		_ekf->posNE[1] = posNED[1];
-
-		// fuse GPS
-		if (_ekf->useGPS && cT < 1000){
-			// printf("\nBLAH1\n");
-			_ekf->fuseVelData = true;
-			_ekf->fusePosData = true;
-			_ekf->fuseHgtData = false;
-			// recall states stored at time of measurement after adjusting for delays
-			_ekf->RecallStates(_ekf->statesAtVelTime, (cT - msecVelDelay));
-			_ekf->RecallStates(_ekf->statesAtPosTime, (cT - msecPosDelay));
-			// record the last fix time
-			_ekf->lastFixTime_ms = cT;
-			// run the fusion step
-			_ekf->FuseVelposNED();
-		} else {
-			// printf("\nBLAH2\n");
-			_ekf->fuseVelData = false;
-			_ekf->fusePosData = false;
-			_ekf->fuseHgtData = false;
-		}
-
-		// Fuse Magnetometer Measurements
-		if (newDataMag && _ekf->statesInitialised && _ekf->useCompass){
-			_ekf->fuseMagData = true;
-			_ekf->RecallStates(_ekf->statesAtMagMeasTime, (cT - msecMagDelay)); // Assume 50 msec avg delay for magnetometer data
-			_ekf->magstate.obsIndex = 0;
-			_ekf->FuseMagnetometer();
-			_ekf->FuseMagnetometer();
-			_ekf->FuseMagnetometer();
-		}
-		else{
-			_ekf->fuseMagData = false;
-		}
-
-		struct ekf_status_report ekf_report;
-
-		//CHECK IF THE INPUT DATA IS SANE
-		int check = _ekf->CheckAndBound(&ekf_report);
-
-		switch (check){
-			case 0:
-				/* all ok */
-				//printf("all good:\t%f\n",eulerEst[0]);
-				break;
-			case 1:
-			{
-				printf("NaN in states, resetting\n");
-				printf("fail states: ");
-				for (unsigned i = 0; i < ekf_report.n_states; i++) {
-					printf("%f ",ekf_report.states[i]);
-				}
-				printf("\n");
-
-				printf("states after reset: ");
-				for (unsigned i = 0; i < ekf_report.n_states; i++) {
-					printf("%f ",_ekf->states[i]);
-				}
-				printf("\n");
-				break;
-			}
-			case 2:
-			{
-				printf("stale IMU data, resetting\n");
-				break;
-			}
-			case 3:
-			{
-				printf("switching to dynamic state\n");
-				break;
-			}
-			case 4:
-			{
-				printf("excessive gyro offsets\n");
-				break;
-			}
-			case 5:
-			{
-				printf("GPS velocity diversion\n");
-				break;
-			}
-			case 6:
-			{
-				printf("Excessive covariances\n");
-				break;
-			}
+//****************************//
+//EKF Second Try Implementation
 
 
-			default:
-			{
-				printf("unknown reset condition\n");
-			}
-		}
 
-		//There is an error: reset
-		if (check){
-			printf("RESET OCCURED AT %d milliseconds\n", (int)cT);
 
-			if (!ekf_report.velHealth || !ekf_report.posHealth || !ekf_report.hgtHealth || ekf_report.gyroOffsetsExcessive) {
-			printf("health: VEL:%s POS:%s HGT:%s OFFS:%s\n",
-				((ekf_report.velHealth) ? "OK" : "ERR"),
-				((ekf_report.posHealth) ? "OK" : "ERR"),
-				((ekf_report.hgtHealth) ? "OK" : "ERR"),
-				((!ekf_report.gyroOffsetsExcessive) ? "OK" : "ERR"));
-			}
 
-			if (ekf_report.velTimeout || ekf_report.posTimeout || ekf_report.hgtTimeout || ekf_report.imuTimeout) {
-				printf("timeout: %s%s%s%s\n",
-					((ekf_report.velTimeout) ? "VEL " : ""),
-					((ekf_report.posTimeout) ? "POS " : ""),
-					((ekf_report.hgtTimeout) ? "HGT " : ""),
-					((ekf_report.imuTimeout) ? "IMU " : ""));
-			}
-		}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//End EKF stuff
+//*******************************//
 
 		// debug output
 		//printf("Euler Angle Difference = %3.1f , %3.1f , %3.1f deg\n", rad2deg*eulerDif[0],rad2deg*eulerDif[1],rad2deg*eulerDif[2]);
 		if (true){//cT - pOutputT >= outputPeriod){
 			pOutputT = cT;
-			//printf("\naccx3, gyrx3, magx3: %8.4f, %8.4f, %8.4f \t %8.4f, %8.4f, %8.4f \t %8.4f, %8.4f, %8.4f", _ekf->accel.x, _ekf->accel.y, _ekf->accel.z, _ekf->angRate.x, _ekf->angRate.y, _ekf->angRate.z, _ekf->magData.x, _ekf->magData.y, _ekf->magData.z);
-
-			//printf("\nvelx3, posx3, eulx3, times: %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %8.4f, %8.4f, \t %8.4f, %lu", (double)_ekf->states[4], (double)_ekf->states[5], (double)_ekf->states[6], (double)_ekf->states[7], (double)_ekf->states[8], (double)_ekf->states[9], eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg, _ekf->dtIMU, cT);
-			filterIndex = (filterIndex + 1)%15;
-
-			sum0 -= window0[filterIndex];
-			window0[filterIndex] = _ekf->angRate.x;
-			sum0 += window0[filterIndex];
-			filtered0 = sum0 / windowSize;
-
-			sum1 -= window1[filterIndex];
-			window1[filterIndex] =  _ekf->angRate.y;
-			sum1 += window1[filterIndex];
-			filtered1 = sum1 / windowSize;
-
-			sum2 -= window2[filterIndex];
-			window2[filterIndex] =  _ekf->angRate.z;
-			sum2 += window2[filterIndex];
-			filtered2 = sum2 / windowSize;
-
-			//printf("\nvel,pos,eul,t,gps,ahrs: %8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%8.4f,%lu,%f,%f,% 8.4f,% 8.4f,% 8.4f,%f,%f,%6.2f,%8.4f",
-			//	(double)_ekf->velNED[0], (double)_ekf->velNED[1], (double)_ekf->velNED[2],
-			//	(double)_ekf->posNE[0], (double)_ekf->posNE[1], (double)_ekf->hgtMea,
-			//	eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg,
-			//	_ekf->dtIMU, cT,
-			//	_ekf->gpsLat*rad2deg, _ekf->gpsLon*rad2deg,
-			//	_ekf->accel.x,_ekf->accel.y,_ekf->accel.z,
-			//	//ahrsEul[0], ahrsEul[1], ahrsEul[2],
-			//	compOut.lat*rad2deg, compOut.lon*rad2deg, compOut.alt, compOut.vNed[0]
-			//	//filtered0, filtered1, filtered2,
-			//	//(double)_ekf->states[10], (double)_ekf->states[11], (double)_ekf->states[12]
-			//	);
-
-
 
 			char writeBuffer [400];
 			 int numWritten = sprintf(writeBuffer, "\nvel,pos,eul,t,gps,ahrs: "
@@ -1067,7 +879,7 @@ void runCompFilt(Filter_Data_t *data, Filter_Data_t *output){
   Filter_Data_t deltas;
 
 
-  if(!data->useGPS){
+  if(data->useGPS){
     iConst = 1.0;
     gConst = 0;
   }
