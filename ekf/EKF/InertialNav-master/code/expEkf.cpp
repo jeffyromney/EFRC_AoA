@@ -402,7 +402,7 @@ int main(int argc, char *argv[]){
 
 			// Run the strapdown INS equations every IMU update
 			_ekf->UpdateStrapdownEquationsNED();
-			#if 1
+
 			// debug code - could be turned into a filter monitoring/watchdog function
 			float tempQuat[4];
 			for (uint8_t j=0; j<4; j++) tempQuat[j] = _ekf->states[j];
@@ -410,11 +410,11 @@ int main(int argc, char *argv[]){
 			for (uint8_t j=0; j<=2; j++) eulerDif[j] = eulerEst[j] - ahrsEul[j];
 			if (eulerDif[2] > M_PI) eulerDif[2] -= 2 * M_PI;
 			if (eulerDif[2] < -M_PI) eulerDif[2] += 2 * M_PI;
-			#endif
+
 			// store the predicted states for substrequent use by measurement fusion
 			_ekf->StoreStates(cT);
 			// Check if on ground - status is used by covariance prediction
-			bool onground = (((AttPosEKF::sq(_ekf->velNED[0]) + AttPosEKF::sq(_ekf->velNED[1]) + AttPosEKF::sq(_ekf->velNED[2])) < 4.0f) && (_ekf->VtasMeas < 8.0f));
+			bool onground = false;//(((AttPosEKF::sq(_ekf->velNED[0]) + AttPosEKF::sq(_ekf->velNED[1]) + AttPosEKF::sq(_ekf->velNED[2])) < 4.0f) && (_ekf->VtasMeas < 8.0f));
 
 			_ekf->setOnGround(onground);
 			// sum delta angles and time used by covariance prediction
@@ -451,17 +451,15 @@ int main(int argc, char *argv[]){
 			 // set fusion flags
 			_ekf->fuseVelData = true;
 			_ekf->fusePosData = true;
-			_ekf->fuseHgtData = false;
+			_ekf->fuseHgtData = false;//true;
 			// recall states stored at time of measurement after adjusting for delays
 			_ekf->RecallStates(_ekf->statesAtVelTime, (cT - msecVelDelay));
 			_ekf->RecallStates(_ekf->statesAtPosTime, (cT - msecPosDelay));
 			_ekf->RecallStates(_ekf->statesAtHgtTime, (cT - msecHgtDelay));
 			// run the fusion step
 			_ekf->FuseVelposNED();
-			//printf("FuseVelposNED at time = %lu \n", cT);
 		}
 		else{
-			// printf("\nBLAH5\n");
 			_ekf->fuseVelData = false;
 			_ekf->fusePosData = false;
 			_ekf->fuseHgtData = false;
@@ -654,19 +652,19 @@ int main(int argc, char *argv[]){
 
 
 			OutMessageU_t msgOut = {0x0A,0xA0,\
-				(double)_ekf->dtIMU,(double)cT,\
-				(double)_ekf->velNED[0],(double)_ekf->velNED[1],(double)_ekf->velNED[2],\
-				(double)_ekf->posNE[0], (double)_ekf->posNE[1],(double)_ekf->hgtMea,\
-				(double)eulerEst[0]*rad2deg, (double)eulerEst[1]*rad2deg, (double)eulerEst[2]*rad2deg,
-                        	(double)_ekf->gpsLat*rad2deg, (double)_ekf->gpsLon*rad2deg, (double)_ekf->gpsHgt,
-                        	(double)compOut.vNed[0], (double)compOut.vNed[1], (double)compOut.vNed[2],
-                        	(double)compOut.ned[0], (double)compOut.ned[1], (double)compOut.ned[2],
-                        	(double)compOut.euler[0]*rad2deg, (double)compOut.euler[1]*rad2deg, (double)compOut.euler[2]*rad2deg,
-                        	(double)compOut.lat*rad2deg, (double)compOut.lon*rad2deg, (double)compOut.alt,\
-				(double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (double)readData.alt*rad2deg,\
-                        	(double)rawImu.accel[0],(double)rawImu.accel[1],(double)rawImu.accel[2],
-                        	(double)rawImu.gyro[0],(double)rawImu.gyro[1],(double)rawImu.gyro[2],
-                        	(double)rawImu.mag[0],(double)rawImu.mag[1],(double)rawImu.mag[2]
+				(float)_ekf->dtIMU,(double)cT,\
+				(float)_ekf->velNED[0],(float)_ekf->velNED[1],(float)_ekf->velNED[2],\
+				(float)_ekf->posNE[0], (float)_ekf->posNE[1],(float)_ekf->hgtMea,\
+				(float)eulerEst[0]*rad2deg, (float)eulerEst[1]*rad2deg, (float)eulerEst[2]*rad2deg,
+                        	(double)_ekf->gpsLat*rad2deg, (double)_ekf->gpsLon*rad2deg, (float)_ekf->gpsHgt,
+                        	(float)compOut.vNed[0], (float)compOut.vNed[1], (float)compOut.vNed[2],
+                        	(float)compOut.ned[0], (float)compOut.ned[1], (float)compOut.ned[2],
+                        	(float)compOut.euler[0]*rad2deg, (float)compOut.euler[1]*rad2deg, (float)compOut.euler[2]*rad2deg,
+                        	(double)compOut.lat*rad2deg, (double)compOut.lon*rad2deg, (float)compOut.alt,\
+				(double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (float)readData.alt*rad2deg,\
+                        	(float)rawImu.accel[0],(float)rawImu.accel[1],(float)rawImu.accel[2],
+                        	(float)rawImu.gyro[0],(float)rawImu.gyro[1],(float)rawImu.gyro[2],
+                        	(float)rawImu.mag[0],(float)rawImu.mag[1],(float)rawImu.mag[2]
 			};
 			try{
 			    //write(sockfd,&writeBuffer,numWritten);
@@ -1080,8 +1078,8 @@ void runCompFilt(Filter_Data_t *data, Filter_Data_t *output){
       iConst = 0;
     gConst = 1.0 - iConst;
     //STATIC FILTER CONSTANTS INSTEAD OF TIME COMPUTED.
-    iConst = 0.9;
-    gConst = 0.1;
+    iConst = 0.6;
+    gConst = 0.4;
 
   }
 
