@@ -13,7 +13,7 @@
 #include <wiringPiI2C.h> //for I2C Functions
 #include <queue>   // for std::queue
 #include <termios.h> //  for comport config
-#include <fcntl.h> //stui for comports
+#include <fcntl.h> //Stuff for comports
 #include <csignal>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -27,18 +27,20 @@
 #define deg2rad 0.017453292f
 #define rad2deg 57.295780f
 #define pi 3.141592657f
-
+#define M2FT 3.28084
 #define ACCEL_Offset_X 0.1516
 #define ACCEL_Offset_Y -0.0149
 #define ACCEL_Offset_Z 9.83109
 
 #define GCONST 0.4
 
-//Socket Stui
+#define sq(x) ((x)*(x))
+
+
+//Socket Stuff
 int sockfd, portno, n;
 struct sockaddr_in serv_addr;
 struct hostent *server;
-
 
 
 
@@ -247,7 +249,7 @@ void error(const char *msg)
 void signalHandler( int signum )
 {
     printf(" INTERUPT SIGNAL: %d ", signum);
-    // cleanup and close up stui here
+    // cleanup and close up Stuff here
     // terminate program
     close(sockfd);
     portno = 5005;
@@ -392,7 +394,14 @@ int main(int argc, char *argv[])
 //        CMPFilter = new Complementary();
     CMPFilter.SetgConst(GCONST);
     CMPFilter.SetiConst(1 - CMPFilter.GetgConst());
-    ABCMPFilter.init();
+    ABCMPFilter.init(CMPFilter.output.euler[1],\
+                                  readData.euler[0],\
+                                  rawImu.accel[1]*M2FT,\
+                                  rawImu.gyro[2]*deg2rad,\
+                                  rawImu.gyro[0]*deg2rad,\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
+                                  readData.alt*M2FT);
 
     printf("Filter start\n");
 
@@ -623,7 +632,7 @@ int main(int argc, char *argv[])
 
             if (!ekf_report.velHealth || !ekf_report.posHealth || !ekf_report.hgtHealth || ekf_report.gyroOffsetsExcessive)
             {
-                printf("health: VEL:%s POS:%s HGT:%s OiS:%s\n",
+                printf("health: VEL:%s POS:%s HGT:%s Offs:%s\n",
                        ((ekf_report.velHealth) ? "OK" : "ERR"),
                        ((ekf_report.posHealth) ? "OK" : "ERR"),
                        ((ekf_report.hgtHealth) ? "OK" : "ERR"),
@@ -678,12 +687,12 @@ int main(int argc, char *argv[])
             //	);
             ABCMPFilter.runFilter(CMPFilter.output.euler[1],\
                                   CMPFilter.output.euler[0],\
-                                  rawImu.accel[1],\
-                                  rawImu.gyro[0],\
-                                  rawImu.gyro[1],\
-                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed),\
-                                  sqrt(sq(CMPFilter.output.vNed[0]) + sq(CMPFilter.output.vNed[1]) + sq(CMPFilter.output.vNed[2])),\
-                                  CMPFilter.output.ned[2]);
+                                  rawImu.accel[1]*M2FT,\
+                                  rawImu.gyro[0]*deg2rad,\
+                                  rawImu.gyro[1]*deg2rad,\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  sqrt(sq(CMPFilter.output.vNed[0]) + sq(CMPFilter.output.vNed[1]) + sq(CMPFilter.output.vNed[2]))*M2FT,\
+                                  CMPFilter.output.ned[2]*M2FT);
 
             char writeBuffer [400];
             int numWritten = sprintf(writeBuffer, "\nvel,pos,eul,t,gps,ahrs: "
@@ -719,8 +728,8 @@ int main(int argc, char *argv[])
                                     (float)rawImu.accel[0],(float)rawImu.accel[1],(float)rawImu.accel[2],
                                     (float)rawImu.gyro[0],(float)rawImu.gyro[1],(float)rawImu.gyro[2],
                                     (float)rawImu.mag[0],(float)rawImu.mag[1],(float)rawImu.mag[2],
-                                    (float)piData.alpha,(uint16_t)piData.pfwd,(uint16_t),piData.p45,
-                                    (float)ardData.alpha,(uint16_t)ardData.pfwd,(uint16_t),ardData.p45,
+                                    (float)piData.alpha,(uint16_t)piData.pfwd,(uint16_t)piData.p45,
+                                    (float)ardData.alpha,(uint16_t)ardData.pfwd,(uint16_t)ardData.p45,
                                     (float)ABCMPFilter.getAlpha(),(float)ABCMPFilter.getBeta()
                                    };
 
