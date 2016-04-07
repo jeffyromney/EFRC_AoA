@@ -1,6 +1,7 @@
 #include "complementary.h"
 #include <cstring>
 #include <math.h>
+#include <stdio.h>
 
 Complementary::Complementary()
 {
