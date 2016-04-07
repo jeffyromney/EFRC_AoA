@@ -27,14 +27,11 @@
 #define rad2deg 57.295780f
 #define pi 3.141592657f
 
-#define K 3.0
-#define NUM_FILTS 2
-
 #define ACCEL_Offset_X 0.1516
 #define ACCEL_Offset_Y -0.0149
 #define ACCEL_Offset_Z 9.83109
 
-
+#define GCONST 0.4
 
 //Socket Stui
 int sockfd, portno, n;
@@ -188,7 +185,8 @@ float pfwd, p45;
 float pfwd_p45, Alpha; // pfwd_p45 is Pfwd/P45
 float pfwdcorr, p45corr;
 float A, B;
-
+const int unit1 = 0;
+const int unit2 = 1;
 int pressFD = 0;
 
 
@@ -386,11 +384,9 @@ int main(int argc, char *argv[])
     _ekf = new AttPosEKF();
 
     // Set constants of  Complementary CMPFilter
-    for(int i=1;i<NUM_FILTS;i++){
 //        CMPFilter = new Complementary();
-        CMPFilter.SetgConst(0.1*(float)i);
+        CMPFilter.SetgConst(GCONST);
         CMPFilter.SetiConst(1 - CMPFilter.GetgConst());
-    }
 
     printf("Filter start\n");
 
@@ -425,9 +421,7 @@ int main(int argc, char *argv[])
         readAhrsData();
         // Apply dtIMU
 //        _ekf->dtIMU     = 0.001f*(cT - pT);
-        for (int i=0; i<NUM_FILTS; i++)
-        {
-            if(!CMPFilter.GetFiltInit() && readData.lat > 0.0)
+            if(!CMPFilter.GetFiltInit() && readData.lat != 0.0)
             {
                 CMPFilter.InitFilt(&readData);
             }
@@ -435,7 +429,6 @@ int main(int argc, char *argv[])
             {
                 CMPFilter.runCompFilt(&readData);
             }
-        }
 
         // Initialise states, covariance and other data
         if ((cT > msecAlignTime) && !_ekf->statesInitialised && (_ekf->GPSstatus >= 3))
@@ -705,11 +698,11 @@ int main(int argc, char *argv[])
                                     (float)_ekf->velNED[0],(float)_ekf->velNED[1],(float)_ekf->velNED[2],\
                                     (float)_ekf->posNE[0], (float)_ekf->posNE[1],(float)_ekf->hgtMea,\
                                     (float)eulerEst[0]*rad2deg, (float)eulerEst[1]*rad2deg, (float)eulerEst[2]*rad2deg,
+                                    (double)_ekf->gpsLat*rad2deg, (double)_ekf->gpsLon*rad2deg, (float)_ekf->gpsHgt,
                                     (float)CMPFilter.output.vNed[0], (float)CMPFilter.output.vNed[1], (float)CMPFilter.output.vNed[2],
                                     (float)CMPFilter.output.ned[0], (float)CMPFilter.output.ned[1], (float)CMPFilter.output.ned[2],
                                     (float)CMPFilter.output.euler[0]*rad2deg, (float)CMPFilter.output.euler[1]*rad2deg, (float)CMPFilter.output.euler[2]*rad2deg,
                                     (double)CMPFilter.output.lat*rad2deg, (double)CMPFilter.output.lon*rad2deg, (float)CMPFilter.output.alt,\
-                                    (double)_ekf->gpsLat*rad2deg, (double)_ekf->gpsLon*rad2deg, (float)_ekf->gpsHgt,
                                     (double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (float)readData.alt*rad2deg,\
                                     (float)rawImu.accel[0],(float)rawImu.accel[1],(float)rawImu.accel[2],
                                     (float)rawImu.gyro[0],(float)rawImu.gyro[1],(float)rawImu.gyro[2],
@@ -725,18 +718,8 @@ int main(int argc, char *argv[])
             {
                 printf("\nException Thrown: %d\n",e);
             }
-
-            try
-            {
-                //write(sockfd,&writeBuier,numWritten);
-                write(sockfd,&msgsOut[i].data,sizeof(msgsOut[i]));
-            }
-            catch(int e)
-            {
-                printf("\nException Thrown: %d\n",e);
-            }
 //        printf("\n%d",sizeof(msgOut));
-        printf("\n%f %f %f",ardData.alpha,ardData.pfwd, ardData.p45);
+        printf("\n%f %f %f  --  %f %f %f",piData.alpha,piData.pfwd, piData.p45, ardData.alpha,ardData.pfwd, ardData.p45);
         for(int i=0 ; i < numWritten ; i ++ )
         {
 		    //std::cout << writeBuffer[i];
