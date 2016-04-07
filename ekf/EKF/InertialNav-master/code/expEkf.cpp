@@ -19,7 +19,7 @@
 #include <netinet/in.h>
 #include "msgDefs.h"
 #include "complementary.h"
-
+#include "arduinoalpha.h"
 
 
 #define GRAVITY_MSS 9.80665f
@@ -172,6 +172,9 @@ int gpsLatestRead = 0;
 Complementary filters[NUM_FILTS];
 Filter_Data_t readData;
 
+//arduino Alpha sensor
+ArduinoAlpha arduinoObj;
+
 // Timing Variables
 unsigned long cT = 0;
 unsigned long eT = 0;
@@ -289,6 +292,11 @@ int main(int argc, char *argv[])
     printf("Done GPS");
 
 
+    arduinoObj.Setport("usb-Arduino_Srl_Arduino_Uno_85431303636351208110-if00");
+    if(arduinoObj.init() != 0){
+        printf("ERROR opening Arduino Port\n");
+    }
+
     portno = 5005;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
@@ -311,6 +319,7 @@ int main(int argc, char *argv[])
 
     // Launch GPS Parser Thread
     std::thread gpsParserThread(gpsParser);
+    std::thread ardParserThread(&ArduinoAlpha::arduinoReadFunc, arduinoObj);
 
     // Instantiate EKF
     _ekf = new AttPosEKF();
@@ -722,6 +731,7 @@ int main(int argc, char *argv[])
 
     delete _ekf;
     gpsParserThread.join();
+    ardParserThread.join();
 }
 
 void readIMUData()

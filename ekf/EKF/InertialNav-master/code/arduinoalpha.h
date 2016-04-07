@@ -7,7 +7,7 @@
 #include <termios.h>
 #include <stdio.h>
 #include <iostream>
-
+#include <fcntl.h>
 
 struct arduinoDataStruct{
   float alpha;
@@ -29,15 +29,16 @@ class ArduinoAlpha
         /** Set port
          * \param val New value to set
          */
-        void Setport(std::string val) { port = val; }
+        void Setport(const std::string &val) { port = val; }
+        void arduinoReadFunc();
+        int init();
     protected:
     private:
         std::string port; //!< Member variable "port"
-        //struct termios  config;
+        struct termios  config;
         unsigned int rxBufIndexer = 0;
         unsigned char rxBuf[7];
         std::queue<arduinoDataStruct> arduinoInputQueue;
-        void arduinoReadFunc();
         int ardFD;
 };
 

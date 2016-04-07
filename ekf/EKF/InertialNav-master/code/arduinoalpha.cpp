@@ -1,4 +1,16 @@
 #include "arduinoalpha.h"
+#include <string>
+#include <queue>
+#include <stdlib.h>
+#include <termios.h>
+#include <stdio.h>
+#include <iostream>
+#include <fcntl.h>
+#include <chrono>
+#include <thread>
+#include <unistd.h>
+#include <stdint.h>
+#include <netinet/in.h>
 
 ArduinoAlpha::ArduinoAlpha()
 {
@@ -28,7 +40,8 @@ void ArduinoAlpha::arduinoReadFunc()
             }
             else
             {
-                usleep(1000);
+//                usleep(1000);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
             break;
         case 1:
@@ -42,7 +55,8 @@ void ArduinoAlpha::arduinoReadFunc()
                 }
                 else
                 {
-                    usleep(1000);
+//                    usleep(1000);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
             int tmpAlpha = ((rxBuf[0] << 8) | rxBuf[1]);
@@ -60,9 +74,9 @@ void ArduinoAlpha::arduinoReadFunc()
     }// while end
 }// function end
 
-int initArd()
+int  ArduinoAlpha::init()
 {
-    ardFD = open(port, O_RDWR | O_NOCTTY | O_NDELAY);
+    ardFD = open(port.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
     if(ardFD == -1)
         return -1;
 
