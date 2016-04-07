@@ -52,7 +52,7 @@ class Complementary_Filter
 
     public:
     // Class Constructor
-    complementary_filter(float T = 0.015, float Tau = 3):
+    Complementary_Filter(float T = 0.015, float Tau = 3):
     T(T), Tau(Tau), g(32.2), v(0.0), Theta(0.0), Phi(0.0), ny(0.0), p(0.0), r(0.0),
     sine_G(0.0), V_1(0.0), V_2(0.0), V_dot_1(0.0), V_dot_2(0.0), h_1(0.0), h_2(0.0),
 	h_dot_1(0.0), h_dot_2(0.0), Beta_dot_i_1(0.0), Beta_dot_i_2(0.0), Beta_i_0(0.0),
