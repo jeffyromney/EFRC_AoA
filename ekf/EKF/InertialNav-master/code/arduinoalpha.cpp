@@ -100,3 +100,24 @@ int  ArduinoAlpha::init()
     }
     return 0;
 }
+
+
+std::queue<arduinoDataStruct> ArduinoAlpha::getLast_flush(){
+    if(!arduinoInputQueue.empty()){
+      arduinoDataStruct tmp = arduinoInputQueue.back();
+      while(!arduinoInputQueue.empty()){
+        arduinoInputQueue.pop();
+      return tmp;
+      }
+    else return NULL;
+}
+std::queue<arduinoDataStruct> ArduinoAlpha::getNext(){
+    if(!arduinoInputQueue.empty()){
+      return arduinoInputQueue.front();
+    }
+    else return NULL;
+}
+
+bool ArduinoAlpha::hasData(){
+    return (!arduinoInputQueue.empty());
+}

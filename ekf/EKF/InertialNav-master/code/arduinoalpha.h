@@ -32,6 +32,9 @@ class ArduinoAlpha
         void Setport(const std::string &val) { port = val; }
         void arduinoReadFunc();
         int init();
+        std::queue<arduinoDataStruct> getLast_flush();
+        std::queue<arduinoDataStruct> getNext();
+        bool hasData();
     protected:
     private:
         std::string port; //!< Member variable "port"

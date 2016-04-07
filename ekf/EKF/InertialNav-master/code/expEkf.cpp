@@ -174,6 +174,7 @@ Filter_Data_t readData;
 
 //arduino Alpha sensor
 ArduinoAlpha arduinoObj;
+arduinoDataStruct ardData;
 
 // Timing Variables
 unsigned long cT = 0;
@@ -346,7 +347,9 @@ int main(int argc, char *argv[])
     //forever loop
     while (true)
     {
-
+        if(ArduinoAlpha.hasData()){
+            ardData = ArduinoAlpha.getLast_flush();
+        }
         // Set Current Time
         pT = cT;
         while(cT - pImuT <= imuPeriod)
@@ -682,10 +685,10 @@ int main(int argc, char *argv[])
             }
         }
 //        printf("\n%d",sizeof(msgOut));
-
+        printf("\n%f %f %f",ardData.alpha,ardData.pfwd, ardData.p45);
         for(int i=0 ; i < numWritten ; i ++ )
         {
-		    std::cout << writeBuffer[i];
+		    //std::cout << writeBuffer[i];
         }
 
             //* Output Info and code commented out
