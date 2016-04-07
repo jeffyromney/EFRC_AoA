@@ -13,7 +13,7 @@
 #include <wiringPiI2C.h> //for I2C Functions
 #include <queue>   // for std::queue
 #include <termios.h> //  for comport config
-#include <fcntl.h> //stuff for comports
+#include <fcntl.h> //stui for comports
 #include <csignal>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -28,14 +28,15 @@
 #define pi 3.141592657f
 
 #define K 3.0
+#define NUM_FILTS 2
 
-#define ACCEL_OFFSET_X 0.1516
-#define ACCEL_OFFSET_Y -0.0149
-#define ACCEL_OFFSET_Z 9.83109
+#define ACCEL_Offset_X 0.1516
+#define ACCEL_Offset_Y -0.0149
+#define ACCEL_Offset_Z 9.83109
 
 
 
-//Socket Stuff
+//Socket Stui
 int sockfd, portno, n;
 struct sockaddr_in serv_addr;
 struct hostent *server;
@@ -83,7 +84,7 @@ bool newDataMag = false;
 // AHRS input data variables
 float ahrsEul[3];
 float eulerEst[3]; // Euler angles calculated from filter states
-float eulerDif[3]; // difference between Euler angle estimated by EKF and the AHRS solution
+float eulerDif[3]; // diierence between Euler angle estimated by EKF and the AHRS solution
 
 // input data timing
 uint64_t msecAlignTime = 100;
@@ -168,8 +169,7 @@ int gpsNumRead = 0;
 int gpsLatestRead = 0;
 
 //Complementary Filters
-#define NUM_FILTS 11
-Complementary *filters[NUM_FILTS];
+Complementary filters[NUM_FILTS];
 Filter_Data_t readData;
 
 // Timing Variables
@@ -191,7 +191,7 @@ unsigned int gyroPeriod = 10;
 unsigned int magPeriod = 100;
 unsigned int outputPeriod = 20;
 unsigned int alphaPeriod = 10;
-unsigned int imuPeriod = 14;
+unsigned int imuPeriod = 24;
 unsigned int gpsPeriod = 200;
 unsigned int ahrsPeriod = 10;
 
@@ -229,7 +229,7 @@ void error(const char *msg)
 void signalHandler( int signum )
 {
     printf(" INTERUPT SIGNAL: %d ", signum);
-    // cleanup and close up stuff here
+    // cleanup and close up stui here
     // terminate program
     close(sockfd);
     portno = 5005;
@@ -262,7 +262,7 @@ int main(int argc, char *argv[])
 
     wiringPiI2CWriteReg8(imuFD,0x3D,00); // set IMU to CONFIG operation mode
     wiringPiI2CWriteReg8(imuFD,0x3B,00); // set Units
-    wiringPiI2CWriteReg8(imuFD,0x3D,11); // set IMU to NDOF_FMC_OFF operation mode
+    wiringPiI2CWriteReg8(imuFD,0x3D,11); // set IMU to NDOF_FMC_Oi operation mode
 
     gpsFD = open("/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00", O_RDWR | O_NOCTTY | O_NDELAY);
     if(gpsFD == -1)
@@ -315,11 +315,11 @@ int main(int argc, char *argv[])
     // Instantiate EKF
     _ekf = new AttPosEKF();
 
-    // Instantiate Complementary Filters
+    // Set constants of  Complementary Filters
     for(int i=1;i<NUM_FILTS;i++){
-        filters[i] = new Complementary();
-        filters[i]->SetgConst(0.1*(float)i);
-        filters[i]->SetiConst(1 - filters[i]->GetgConst());
+//        filters[i] = new Complementary();
+        filters[i].SetgConst(0.1*(float)i);
+        filters[i].SetiConst(1 - filters[i].GetgConst());
     }
 
     printf("Filter start\n");
@@ -351,19 +351,17 @@ int main(int argc, char *argv[])
         readGpsData();
         readMagData();
         readAhrsData();
-
         // Apply dtIMU
 //        _ekf->dtIMU     = 0.001f*(cT - pT);
         for (int i=0; i<NUM_FILTS; i++)
         {
-
-            if(!filters[i]->GetFiltInit() && readData.lat > 0.0)
+            if(!filters[i].GetFiltInit() && readData.lat > 0.0)
             {
-                filters[i]->InitFilt(&readData);
+                filters[i].InitFilt(&readData);
             }
-            else if(filters[i]->GetFiltInit())
+            else if(filters[i].GetFiltInit())
             {
-                filters[i]->runCompFilt(&readData);
+                filters[i].runCompFilt(&readData);
             }
         }
 
@@ -417,7 +415,7 @@ int main(int argc, char *argv[])
         if (newDataGps)
         {
             // printf("\nBLAH4\n");
-            // calculate a position offset which is applied to NE position and velocity wherever it is used throughout code to allow GPS position jumps to be accommodated gradually
+            // calculate a position Offset which is applied to NE position and velocity wherever it is used throughout code to allow GPS position jumps to be accommodated gradually
             _ekf->decayGpsOffset();
 
             // Convert GPS measurements to Pos NE, hgt and Vel NED
@@ -528,7 +526,7 @@ int main(int argc, char *argv[])
         }
         case 4:
         {
-            printf("excessive gyro offsets\n");
+            printf("excessive gyro Offsets\n");
             break;
         }
         case 5:
@@ -556,7 +554,7 @@ int main(int argc, char *argv[])
 
             if (!ekf_report.velHealth || !ekf_report.posHealth || !ekf_report.hgtHealth || ekf_report.gyroOffsetsExcessive)
             {
-                printf("health: VEL:%s POS:%s HGT:%s OFFS:%s\n",
+                printf("health: VEL:%s POS:%s HGT:%s OiS:%s\n",
                        ((ekf_report.velHealth) ? "OK" : "ERR"),
                        ((ekf_report.posHealth) ? "OK" : "ERR"),
                        ((ekf_report.hgtHealth) ? "OK" : "ERR"),
@@ -574,7 +572,7 @@ int main(int argc, char *argv[])
         }
 
         // debug output
-        //printf("Euler Angle Difference = %3.1f , %3.1f , %3.1f deg\n", rad2deg*eulerDif[0],rad2deg*eulerDif[1],rad2deg*eulerDif[2]);
+        //printf("Euler Angle Diierence = %3.1f , %3.1f , %3.1f deg\n", rad2deg*eulerDif[0],rad2deg*eulerDif[1],rad2deg*eulerDif[2]);
         if (true) //cT - pOutputT >= outputPeriod){
         {
             pOutputT = cT;
@@ -612,15 +610,9 @@ int main(int argc, char *argv[])
             //	);
 
 
-
             char writeBuffer [400];
             int numWritten = sprintf(writeBuffer, "\nvel,pos,eul,t,gps,ahrs: "
                                      "%8.4f,%lu,"
-                                     "%8.4f,%8.4f,%8.4f,"
-                                     "%8.4f,%8.4f,%8.4f,"
-                                     "%8.4f,%8.4f,%8.4f,"
-                                     "%8.4f,%8.4f,%8.4f,"
-                                     "%f,%f,%6.2f,"
                                      "%8.4f,%8.4f,%8.4f,"
                                      "%8.4f,%8.4f,%8.4f,"
                                      "%8.4f,%8.4f,%8.4f,"
@@ -633,11 +625,6 @@ int main(int argc, char *argv[])
                                      eulerEst[0]*rad2deg, eulerEst[1]*rad2deg, eulerEst[2]*rad2deg,
                                      _ekf->accel.x,_ekf->accel.y,_ekf->accel.z,
                                      _ekf->gpsLat*rad2deg, _ekf->gpsLon*rad2deg, _ekf->gpsHgt,
-                                     filters[5]->output.vNed[0], filters[5]->output.vNed[1], filters[5]->output.vNed[2],
-                                     filters[5]->output.ned[0], filters[5]->output.ned[1], filters[5]->output.ned[2],
-                                     filters[5]->output.euler[0]*rad2deg, filters[5]->output.euler[1]*rad2deg, filters[5]->output.euler[2]*rad2deg,
-                                     filters[5]->output.accel[0], filters[5]->output.accel[1], filters[5]->output.accel[2],
-                                     filters[5]->output.lat*rad2deg, filters[5]->output.lon*rad2deg, filters[5]->output.alt,
                                      //iConst, gConst, testVal
                                      readData.lat*rad2deg, readData.lon*rad2deg, readData.alt*rad2deg
                                     );
@@ -649,30 +636,48 @@ int main(int argc, char *argv[])
                                     (float)_ekf->posNE[0], (float)_ekf->posNE[1],(float)_ekf->hgtMea,\
                                     (float)eulerEst[0]*rad2deg, (float)eulerEst[1]*rad2deg, (float)eulerEst[2]*rad2deg,
                                     (double)_ekf->gpsLat*rad2deg, (double)_ekf->gpsLon*rad2deg, (float)_ekf->gpsHgt,
-                                    (float)filters[5]->output.vNed[0], (float)filters[5]->output.vNed[1], (float)filters[5]->output.vNed[2],
-                                    (float)filters[5]->output.ned[0], (float)filters[5]->output.ned[1], (float)filters[5]->output.ned[2],
-                                    (float)filters[5]->output.euler[0]*rad2deg, (float)filters[5]->output.euler[1]*rad2deg, (float)filters[5]->output.euler[2]*rad2deg,
-                                    (double)filters[5]->output.lat*rad2deg, (double)filters[5]->output.lon*rad2deg, (float)filters[5]->output.alt,\
                                     (double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (float)readData.alt*rad2deg,\
                                     (float)rawImu.accel[0],(float)rawImu.accel[1],(float)rawImu.accel[2],
                                     (float)rawImu.gyro[0],(float)rawImu.gyro[1],(float)rawImu.gyro[2],
                                     (float)rawImu.mag[0],(float)rawImu.mag[1],(float)rawImu.mag[2]
                                    };
+
             try
             {
-                //write(sockfd,&writeBuffer,numWritten);
+                //write(sockfd,&writeBuier,numWritten);
                 write(sockfd,&msgOut.data,sizeof(msgOut));
             }
             catch(int e)
             {
                 printf("\nException Thrown: %d\n",e);
             }
-            printf("\n%d",sizeof(msgOut));
 
-            for(int i=0 ; i < numWritten ; i ++ )
+
+
+	    OutMessageCMPU_t msgsOut[NUM_FILTS];
+	    for (int i=0;i<NUM_FILTS;i++){
+            msgsOut[i] = {0x0E,0xE0,i,(double)cT,\
+                                    (float)filters[i].output.vNed[0], (float)filters[i].output.vNed[1], (float)filters[i].output.vNed[2],
+                                    (float)filters[i].output.ned[0], (float)filters[i].output.ned[1], (float)filters[i].output.ned[2],
+                                    (float)filters[i].output.euler[0]*rad2deg, (float)filters[i].output.euler[1]*rad2deg, (float)filters[i].output.euler[2]*rad2deg,
+                                    (double)filters[i].output.lat*rad2deg, (double)filters[i].output.lon*rad2deg, (float)filters[i].output.alt,\
+                                   };
+            try
             {
-//				std::cout << writeBuffer[i];
+                //write(sockfd,&writeBuier,numWritten);
+                write(sockfd,&msgsOut[i].data,sizeof(msgsOut[i]));
             }
+            catch(int e)
+            {
+                printf("\nException Thrown: %d\n",e);
+            }
+        }
+//        printf("\n%d",sizeof(msgOut));
+
+        for(int i=0 ; i < numWritten ; i ++ )
+        {
+		    std::cout << writeBuffer[i];
+        }
 
             //* Output Info and code commented out
             // State vector:
@@ -696,11 +701,11 @@ int main(int argc, char *argv[])
             // printf("states (vel m/s)     [5-7]: %8.4f, %8.4f, %8.4f\n", (double)_ekf->states[4], (double)_ekf->states[5], (double)_ekf->states[6]);
             // printf("states (pos m)      [8-10]: %8.4f, %8.4f, %8.4f\n", (double)_ekf->states[7], (double)_ekf->states[8], (double)_ekf->states[9]);
             // printf("states (delta ang) [11-13]: %8.4f, %8.4f, %8.4f\n", (double)_ekf->states[10], (double)_ekf->states[11], (double)_ekf->states[12]);
-            // printf("states (delta vel) [14]: %8.4ff\n", (double)_ekf->states[13]);
+            // printf("states (delta vel) [14]: %8.4i\n", (double)_ekf->states[13]);
             // printf("states (wind)      [15-16]: %8.4f, %8.4f\n", (double)_ekf->states[14], (double)_ekf->states[15]);
             // printf("states (earth mag) [17-19]: %8.4f, %8.4f, %8.4f\n", (double)_ekf->states[16], (double)_ekf->states[17], (double)_ekf->states[18]);
             // printf("states (body mag)  [20-22]: %8.4f, %8.4f, %8.4f\n", (double)_ekf->states[19], (double)_ekf->states[20], (double)_ekf->states[21]);
-            // printf("states (terain offset) [23]: %8.4ff\n", (double)_ekf->states[22]);
+            // printf("states (terain Offset) [23]: %8.4i\n", (double)_ekf->states[22]);
             // printf("states: %s %s %s %s %s %s %s %s\n",
             // (_ekf->statesInitialised) ? "INITIALIZED" : "NON_INIT",
             // //(_ekf->_onGround) ? "ON_GROUND" : "AIRBORNE",
@@ -729,7 +734,7 @@ void readIMUData()
     for (int i=0; i<3; i++)
     {
         short reading = wiringPiI2CReadReg16(imuFD,(baseAddr + (i*2)));
-        //reading = ((reading & 0x00ff) << 8) | ((reading & 0xff00)>>8);
+        //reading = ((reading & 0x00i) << 8) | ((reading & 0xi00)>>8);
         // correct for msb glitches
         if (reading < -16500)
             reading += 0x8000;
@@ -819,24 +824,24 @@ void readMagData()
     pMagT = cT;
     newDataMag = true;
     int baseAddrDat = 0x0E;
-    int baseAddrOff = 0x5B;
+    int baseAddrOi = 0x5B;
     float magDatas [3];
     float magBias [3];
     for (int i=0; i<3; i++)
     {
         short readingDat = wiringPiI2CReadReg16(imuFD,(baseAddrDat + (i*2)));
-        short readingOff = wiringPiI2CReadReg16(imuFD,(baseAddrOff + (i*2)));
+        short readingOi = wiringPiI2CReadReg16(imuFD,(baseAddrOi + (i*2)));
         //correct for msb glitches
         if (readingDat < -16500)
             readingDat += 0x8000;
         else if (readingDat > 16500)
             readingDat -= 0x8000;
-        if (readingOff < -16500)
-            readingOff += 0x8000;
-        else if (readingOff > 16500)
-            readingOff -= 0x8000;
+        if (readingOi < -16500)
+            readingOi += 0x8000;
+        else if (readingOi > 16500)
+            readingOi -= 0x8000;
         magDatas[i] = ((float)readingDat)/16.0;
-        magBias[i] = ((float)readingOff)/16.0;
+        magBias[i] = ((float)readingOi)/16.0;
     }
     _ekf->magData.x = -magDatas[1];
     _ekf->magBias.x = -magBias[1];
