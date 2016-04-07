@@ -9,7 +9,7 @@
 #include <iostream>
 #include <fcntl.h>
 
-struct arduinoDataStruct{
+struct alphaDataStruct{
   float alpha;
   float pfwd;
   float p45;
@@ -32,8 +32,8 @@ class ArduinoAlpha
         void Setport(const std::string &val) { port = val; }
         void arduinoReadFunc();
         int init();
-        bool getNext(arduinoDataStruct* data);
-        bool getLast_flush(arduinoDataStruct* data);
+        bool getNext(alphaDataStruct* data);
+        bool getLast_flush(alphaDataStruct* data);
         bool hasData();
     protected:
     private:
@@ -41,11 +41,11 @@ class ArduinoAlpha
         struct termios  config;
         unsigned int rxBufIndexer = 0;
         unsigned char rxBuf[7];
-        std::queue<arduinoDataStruct> arduinoInputQueue;
+        std::queue<alphaDataStruct> arduinoInputQueue;
         int ardFD;
         int state = 0;
         unsigned char c;
-        arduinoDataStruct inputStruct;
+        alphaDataStruct inputStruct;
         int numRead = 0;
 };
 

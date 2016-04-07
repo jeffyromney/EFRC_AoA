@@ -18,6 +18,18 @@ typedef struct __attribute__((packed)) OutMessage_t
 	double ekfLat;
 	double ekfLon;
 	float ekfAlt;
+	float cmpVelN;
+	float cmpVelE;
+	float cmpVelD;
+	float cmpPosN;
+	float cmpPosE;
+	float cmpPosD;
+	float cmpRoll;
+	float cmpPitch;
+	float cmpYaw;
+	double cmpLat;
+	double cmpLon;
+	float cmpAlt;
 	double gpsLat;
 	double gpsLon;
 	float gpsAlt;
@@ -37,43 +49,6 @@ typedef union OutMessageU_t
 	OutMessage_t msg;
 	char data[sizeof(OutMessage_t)];
 }OutMessageU_t;
-
-
-
-
-typedef struct __attribute__((packed)) OutMessageCMP_t
-{
-	uint8_t start[2];
-    int   filtNum;
-    double cT;
-	float cmpVelN;
-	float cmpVelE;
-	float cmpVelD;
-	float cmpPosN;
-	float cmpPosE;
-	float cmpPosD;
-	float cmpRoll;
-	float cmpPitch;
-	float cmpYaw;
-	double cmpLat;
-	double cmpLon;
-	float cmpAlt;
-}OutMessageCMP_t;
-
-typedef union OutMessageCMPU_t
-{
-	OutMessageCMP_t msg;
-	char data[sizeof(OutMessageCMP_t)];
-}OutMessageCMPU_t;
-
-
-
-
-
-
-
-
-
 
 
 

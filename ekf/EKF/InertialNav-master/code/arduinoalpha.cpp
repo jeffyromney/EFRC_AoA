@@ -106,11 +106,11 @@ int  ArduinoAlpha::init()
 }
 
 
-bool ArduinoAlpha::getLast_flush(arduinoDataStruct* data){
-//    arduinoDataStruct tmp1 = arduinoInputQueue.front();
+bool ArduinoAlpha::getLast_flush(alphaDataStruct* data){
+//    alphaDataStruct tmp1 = arduinoInputQueue.front();
     if(this->hasData()){
-//      arduinoDataStruct tmp = arduinoInputQueue.back();
-      memcpy(data,&arduinoInputQueue.back(),sizeof(arduinoDataStruct));
+//      alphaDataStruct tmp = arduinoInputQueue.back();
+      memcpy(data,&arduinoInputQueue.back(),sizeof(alphaDataStruct));
 //      data = arduinoInputQueue.back();
       while(!arduinoInputQueue.empty()){
         arduinoInputQueue.pop();
@@ -119,9 +119,9 @@ bool ArduinoAlpha::getLast_flush(arduinoDataStruct* data){
     }
     else return false;
 }
-bool ArduinoAlpha::getNext(arduinoDataStruct* data){
+bool ArduinoAlpha::getNext(alphaDataStruct* data){
     if(this->hasData()){
-      memcpy(data,&arduinoInputQueue.front(),sizeof(arduinoDataStruct));
+      memcpy(data,&arduinoInputQueue.front(),sizeof(alphaDataStruct));
 //      data = arduinoInputQueue.front();
       return true;
     }
