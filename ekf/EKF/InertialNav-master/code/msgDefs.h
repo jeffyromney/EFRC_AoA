@@ -42,6 +42,14 @@ typedef struct __attribute__((packed)) OutMessage_t
 	float magX;
 	float magY;
 	float magZ;
+	float piAlpha;
+	uint16_t piPfwd;
+	uint16_t piP45;
+	float ardAlpha;
+	uint16_t ardPfwd;
+	uint16_t ardP45;
+	float Beta;
+	float Alpha;
 }OutMessage_t;
 
 typedef union OutMessageU_t

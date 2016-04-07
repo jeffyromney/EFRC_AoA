@@ -20,6 +20,7 @@
 #include "msgDefs.h"
 #include "complementary.h"
 #include "arduinoalpha.h"
+#include "Complementary_Filter.h"
 
 
 #define GRAVITY_MSS 9.80665f
@@ -62,7 +63,7 @@ void readMagData();
 void readAhrsData();
 void readTimingData();
 void gpsParser();
-int readArd();
+float getVelY(float euler[3], float vel[3]);
 float ConstrainFloat(float val, float min, float max);
 
 
@@ -169,6 +170,7 @@ int gpsLatestRead = 0;
 //Complementary Filters
 Complementary CMPFilter;
 Filter_Data_t readData;
+Complementary_Filter ABCMPFilter;
 
 //Alpha sensors
 ArduinoAlpha arduinoObj;
@@ -269,31 +271,33 @@ void signalHandler( int signum )
 }
 
 
-float MS4525Getpressure(){
-  int reading = wiringPiI2CReadReg16(pressFD,0);
-  reading = ((reading & 0x00ff)<<8) | ((reading & 0xff00)>>8);
-  reading = reading & mask;
-  return reading;
+float MS4525Getpressure()
+{
+    int reading = wiringPiI2CReadReg16(pressFD,0);
+    reading = ((reading & 0x00ff)<<8) | ((reading & 0xff00)>>8);
+    reading = reading & mask;
+    return reading;
 }
 
-void readAlpha(){
-      digitalWrite(unit1,HIGH );
-      float pfwd = MS4525Getpressure(); // Get Differential Pressure from unit 1
-      digitalWrite( unit1, LOW);
+void readAlpha()
+{
+    digitalWrite(unit1,HIGH );
+    float pfwd = MS4525Getpressure(); // Get Differential Pressure from unit 1
+    digitalWrite( unit1, LOW);
 
-      pfwdcorr = pfwd - pfwdnoload; // Account for no load
+    pfwdcorr = pfwd - pfwdnoload; // Account for no load
 
-      digitalWrite(unit2,HIGH );
-      float p45 = MS4525Getpressure(); // Get Differential Pressure from unit 2
-      digitalWrite( unit2, LOW);
+    digitalWrite(unit2,HIGH );
+    float p45 = MS4525Getpressure(); // Get Differential Pressure from unit 2
+    digitalWrite( unit2, LOW);
 
-      p45corr = p45 - p45noload; // Account for noload
+    p45corr = p45 - p45noload; // Account for noload
 
-      pfwd_p45 = pfwdcorr/p45corr;
+    pfwd_p45 = pfwdcorr/p45corr;
 
-      piData.alpha = A*(pfwd_p45) + B;
-      piData.p45 = p45;
-      piData.pfwd = pfwd;
+    piData.alpha = A*(pfwd_p45) + B;
+    piData.p45 = p45;
+    piData.pfwd = pfwd;
 
 }
 
@@ -303,15 +307,15 @@ int main(int argc, char *argv[])
 {
 
 
-  A = -16.908083; // These values must be adjusted for individual
-  B = 42.415008; // probes and probe locations
+    A = -16.908083; // These values must be adjusted for individual
+    B = 42.415008; // probes and probe locations
 
-  pfwdnoload = 8147.9; //counts Adjust these values for
-  p45noload = 8144.5; //counts the individual sensors
+    pfwdnoload = 8147.9; //counts Adjust these values for
+    p45noload = 8144.5; //counts the individual sensors
     //signal (11, signalHandler);
     signal (SIGPIPE, signalHandler);
 
-  wiringPiSetup();
+    wiringPiSetup();
     imuFD = wiringPiI2CSetup (imu_address);
 
     wiringPiI2CWriteReg8(imuFD,0x3D,00); // set IMU to CONFIG operation mode
@@ -320,12 +324,12 @@ int main(int argc, char *argv[])
 
 
 
-  // MS4525 I2C Handle
-  pressFD = wiringPiI2CSetup (press_address) ;
-  pinMode (unit1, OUTPUT); // set pin 8 control for sensor 1
-  pinMode (unit2, OUTPUT); // set pin 9 control for sensor 2
-  digitalWrite( unit1, LOW); // set both units off line
-  digitalWrite( unit2, LOW);
+    // MS4525 I2C Handle
+    pressFD = wiringPiI2CSetup (press_address) ;
+    pinMode (unit1, OUTPUT); // set pin 8 control for sensor 1
+    pinMode (unit2, OUTPUT); // set pin 9 control for sensor 2
+    digitalWrite( unit1, LOW); // set both units off line
+    digitalWrite( unit2, LOW);
 
     gpsFD = open("/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00", O_RDWR | O_NOCTTY | O_NDELAY);
     if(gpsFD == -1)
@@ -353,7 +357,8 @@ int main(int argc, char *argv[])
 
 
     arduinoObj.Setport("/dev/serial/by-id/usb-Arduino_Srl_Arduino_Uno_85431303636351208110-if00");
-    if(arduinoObj.init() != 0){
+    if(arduinoObj.init() != 0)
+    {
         printf("ERROR opening Arduino Port\n");
     }
 
@@ -385,8 +390,9 @@ int main(int argc, char *argv[])
 
     // Set constants of  Complementary CMPFilter
 //        CMPFilter = new Complementary();
-        CMPFilter.SetgConst(GCONST);
-        CMPFilter.SetiConst(1 - CMPFilter.GetgConst());
+    CMPFilter.SetgConst(GCONST);
+    CMPFilter.SetiConst(1 - CMPFilter.GetgConst());
+    ABCMPFilter.init();
 
     printf("Filter start\n");
 
@@ -421,14 +427,14 @@ int main(int argc, char *argv[])
         readAhrsData();
         // Apply dtIMU
 //        _ekf->dtIMU     = 0.001f*(cT - pT);
-            if(!CMPFilter.GetFiltInit() && readData.lat != 0.0)
-            {
-                CMPFilter.InitFilt(&readData);
-            }
-            else if(CMPFilter.GetFiltInit())
-            {
-                CMPFilter.runCompFilt(&readData);
-            }
+        if(!CMPFilter.GetFiltInit() && readData.lat != 0.0)
+        {
+            CMPFilter.InitFilt(&readData);
+        }
+        else if(CMPFilter.GetFiltInit())
+        {
+            CMPFilter.runCompFilt(&readData);
+        }
 
         // Initialise states, covariance and other data
         if ((cT > msecAlignTime) && !_ekf->statesInitialised && (_ekf->GPSstatus >= 3))
@@ -633,7 +639,6 @@ int main(int argc, char *argv[])
                        ((ekf_report.imuTimeout) ? "IMU " : ""));
             }
         }
-
         // debug output
         //printf("Euler Angle Diierence = %3.1f , %3.1f , %3.1f deg\n", rad2deg*eulerDif[0],rad2deg*eulerDif[1],rad2deg*eulerDif[2]);
         if (true) //cT - pOutputT >= outputPeriod){
@@ -671,7 +676,14 @@ int main(int argc, char *argv[])
             //	//filtered0, filtered1, filtered2,
             //	//(double)_ekf->states[10], (double)_ekf->states[11], (double)_ekf->states[12]
             //	);
-
+            ABCMPFilter.runFilter(CMPFilter.output.euler[1],\
+                                  CMPFilter.output.euler[0],\
+                                  rawImu.accel[1],\
+                                  rawImu.gyro[0],\
+                                  rawImu.gyro[1],\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed),\
+                                  sqrt(sq(CMPFilter.output.vNed[0]) + sq(CMPFilter.output.vNed[1]) + sq(CMPFilter.output.vNed[2])),\
+                                  CMPFilter.output.ned[2]);
 
             char writeBuffer [400];
             int numWritten = sprintf(writeBuffer, "\nvel,pos,eul,t,gps,ahrs: "
@@ -706,7 +718,10 @@ int main(int argc, char *argv[])
                                     (double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (float)readData.alt*rad2deg,\
                                     (float)rawImu.accel[0],(float)rawImu.accel[1],(float)rawImu.accel[2],
                                     (float)rawImu.gyro[0],(float)rawImu.gyro[1],(float)rawImu.gyro[2],
-                                    (float)rawImu.mag[0],(float)rawImu.mag[1],(float)rawImu.mag[2]
+                                    (float)rawImu.mag[0],(float)rawImu.mag[1],(float)rawImu.mag[2],
+                                    (float)piData.alpha,(uint16_t)piData.pfwd,(uint16_t),piData.p45,
+                                    (float)ardData.alpha,(uint16_t)ardData.pfwd,(uint16_t),ardData.p45,
+                                    (float)ABCMPFilter.getAlpha(),(float)ABCMPFilter.getBeta()
                                    };
 
             try
@@ -719,11 +734,11 @@ int main(int argc, char *argv[])
                 printf("\nException Thrown: %d\n",e);
             }
 //        printf("\n%d",sizeof(msgOut));
-        printf("\n%f %f %f  --  %f %f %f",piData.alpha,piData.pfwd, piData.p45, ardData.alpha,ardData.pfwd, ardData.p45);
-        for(int i=0 ; i < numWritten ; i ++ )
-        {
-		    //std::cout << writeBuffer[i];
-        }
+            printf("\n%f %f %f  --  %f %f %f",piData.alpha,piData.pfwd, piData.p45, ardData.alpha,ardData.pfwd, ardData.p45);
+            for(int i=0 ; i < numWritten ; i ++ )
+            {
+                //std::cout << writeBuffer[i];
+            }
 
             //* Output Info and code commented out
             // State vector:
@@ -1112,3 +1127,28 @@ void gpsParser()
 }//end gpsReadFunction
 
 
+//rotates velocities back to body frame and returns body fixed y velocity
+float getVelY(float euler[3], float vel[3])
+{
+    float outData[3];
+    float rotMat[3][3];
+
+    rotMat[0][0] = cos(euler[2]) * cos(euler[1]);
+    rotMat[1][0] = cos(euler[1]) * sin(euler[2]);
+    rotMat[2][0] = -sin(euler[1]);
+    rotMat[0][1] = cos(euler[2]) * sin(euler[0]) * sin(euler[1]) - cos(euler[0]) * sin(euler[2]);
+    rotMat[1][1] = cos(euler[0]) * cos(euler[2]) + sin(euler[0]) * cos(euler[2]) * sin(euler[1]);
+    rotMat[2][1] = cos(euler[1]) * sin(euler[1]);
+    rotMat[0][2] = sin(euler[0]) * sin(euler[2]) + cos(euler[0]) * cos(euler[2]) * sin(euler[1]);
+    rotMat[1][2] = cos(euler[0]) * sin(euler[2]) * sin(euler[1]) - cos(euler[2]) * sin(euler[0]);
+    rotMat[2][2] = cos(euler[0]) * cos(euler[1]);
+
+
+
+    outData[0] = rotMat[0][0] * vel[0] + rotMat[0][1] * vel[1] + rotMat[0][2] * vel[2];
+    outData[1] = rotMat[1][0] * vel[0] + rotMat[1][1] * vel[1] + rotMat[1][2] * vel[2];
+    outData[2] = rotMat[2][0] * vel[0] + rotMat[2][1] * vel[1] + rotMat[2][2] * vel[2];
+    return outData[1];
+//	return outData;
+
+}
