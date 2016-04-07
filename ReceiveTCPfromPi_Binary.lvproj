@@ -10,6 +10,8 @@
 		<Property Name="server.vi.callsEnabled" Type="Bool">true</Property>
 		<Property Name="server.vi.propertiesEnabled" Type="Bool">true</Property>
 		<Property Name="specify.custom.address" Type="Bool">false</Property>
+		<Item Name="ConvertToArrayCMP.vi" Type="VI" URL="../ConvertToArrayCMP.vi"/>
+		<Item Name="CreateNamesArrayCMP.vi" Type="VI" URL="../CreateNamesArrayCMP.vi"/>
 		<Item Name="ReceiveTCPfromPi_Binary.vi" Type="VI" URL="../ReceiveTCPfromPi_Binary.vi"/>
 		<Item Name="Dependencies" Type="Dependencies">
 			<Item Name="vi.lib" Type="Folder">
@@ -55,6 +57,7 @@
 				<Item Name="Write To Spreadsheet File (string).vi" Type="VI" URL="/&lt;vilib&gt;/Utility/file.llb/Write To Spreadsheet File (string).vi"/>
 				<Item Name="Write To Spreadsheet File.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/file.llb/Write To Spreadsheet File.vi"/>
 			</Item>
+			<Item Name="ConvertToArray.vi" Type="VI" URL="../ConvertToArray.vi"/>
 			<Item Name="CreateNamesArray.vi" Type="VI" URL="../CreateNamesArray.vi"/>
 		</Item>
 		<Item Name="Build Specifications" Type="Build">
