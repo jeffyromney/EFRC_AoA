@@ -32,8 +32,8 @@ class ArduinoAlpha
         void Setport(const std::string &val) { port = val; }
         void arduinoReadFunc();
         int init();
-        std::queue<arduinoDataStruct> getLast_flush();
-        std::queue<arduinoDataStruct> getNext();
+        bool getNext(arduinoDataStruct* data);
+        bool getLast_flush(arduinoDataStruct* data);
         bool hasData();
     protected:
     private:
@@ -43,6 +43,10 @@ class ArduinoAlpha
         unsigned char rxBuf[7];
         std::queue<arduinoDataStruct> arduinoInputQueue;
         int ardFD;
+        int state = 0;
+        unsigned char c;
+        arduinoDataStruct inputStruct;
+        int numRead = 0;
 };
 
 #endif // ARDUINOALPHA_H

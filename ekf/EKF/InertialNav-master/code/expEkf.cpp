@@ -65,6 +65,7 @@ void readMagData();
 void readAhrsData();
 void readTimingData();
 void gpsParser();
+int readArd();
 float ConstrainFloat(float val, float min, float max);
 
 
@@ -256,6 +257,14 @@ void signalHandler( int signum )
 
 }
 
+int readArd(){
+    while(true){
+        arduinoObj.arduinoReadFunc();
+    }
+    return 1;
+}
+
+
 
 int main(int argc, char *argv[])
 {
@@ -293,7 +302,7 @@ int main(int argc, char *argv[])
     printf("Done GPS");
 
 
-    arduinoObj.Setport("usb-Arduino_Srl_Arduino_Uno_85431303636351208110-if00");
+    arduinoObj.Setport("/dev/serial/by-id/usb-Arduino_Srl_Arduino_Uno_85431303636351208110-if00");
     if(arduinoObj.init() != 0){
         printf("ERROR opening Arduino Port\n");
     }
@@ -320,7 +329,7 @@ int main(int argc, char *argv[])
 
     // Launch GPS Parser Thread
     std::thread gpsParserThread(gpsParser);
-    std::thread ardParserThread(&ArduinoAlpha::arduinoReadFunc, arduinoObj);
+//    std::thread ardParserThread(&ArduinoAlpha::arduinoReadFunc, readArd);
 
     // Instantiate EKF
     _ekf = new AttPosEKF();
@@ -347,9 +356,8 @@ int main(int argc, char *argv[])
     //forever loop
     while (true)
     {
-        if(ArduinoAlpha.hasData()){
-            ardData = ArduinoAlpha.getLast_flush();
-        }
+        arduinoObj.arduinoReadFunc();
+        arduinoObj.getLast_flush(&ardData);
         // Set Current Time
         pT = cT;
         while(cT - pImuT <= imuPeriod)
@@ -462,7 +470,6 @@ int main(int argc, char *argv[])
         // fuse GPS
         if (_ekf->useGPS && cT < 1000)
         {
-            // printf("\nBLAH1\n");
             _ekf->fuseVelData = true;
             _ekf->fusePosData = true;
             _ekf->fuseHgtData = false;
@@ -476,7 +483,6 @@ int main(int argc, char *argv[])
         }
         else
         {
-            // printf("\nBLAH2\n");
             _ekf->fuseVelData = false;
             _ekf->fusePosData = false;
             _ekf->fuseHgtData = false;
@@ -734,7 +740,7 @@ int main(int argc, char *argv[])
 
     delete _ekf;
     gpsParserThread.join();
-    ardParserThread.join();
+//    ardParserThread.join();
 }
 
 void readIMUData()
@@ -801,10 +807,8 @@ void readGpsData()
     if(gpsInputQueue.empty())
         newDataGps = false;
     readData.useGPS = false;
-    // printf("\nBLAH6\n");
     while(!gpsInputQueue.empty())
     {
-        // printf("\nBLAH7\n");
         float gpsDt = (cT - pGpsT);
         _ekf->updateDtGpsFilt(gpsDt);
         gpsDataStruct inputData = gpsInputQueue.front();
@@ -1057,7 +1061,6 @@ void gpsParser()
                 gpsDataIn.velE = ((float)inData.parsed.velE)*1E-3;
                 gpsDataIn.velD = ((float)inData.parsed.velD)*1E-3;
                 gpsDataIn.status = (inData.parsed.fixType);
-                // printf("\nBLAH10\n");
                 gpsInputQueue.push(gpsDataIn);
                 pGpsT = cT;
 //          printf(" %4d %2d %2d %2d %2d %2d  --  Lat: % 2.8f Lon: % 3.8f Alt: % 4.2f velD: % 3.3f Fix Type: %1d Valid: %d\n",
@@ -1079,3 +1082,5 @@ void gpsParser()
         }//end switch
     }//end while
 }//end gpsReadFunction
+
+

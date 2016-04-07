@@ -11,8 +11,10 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <netinet/in.h>
+#include <cstring>
 
-ArduinoAlpha::ArduinoAlpha()
+ArduinoAlpha::ArduinoAlpha():
+    arduinoInputQueue()
 {
     //ctor
 }
@@ -25,10 +27,8 @@ ArduinoAlpha::~ArduinoAlpha()
 // runs as a thread to continuously check serial port and parse new data
 void ArduinoAlpha::arduinoReadFunc()
 {
-    arduinoDataStruct inputStruct;
-    int state = 0;
-    unsigned char c;
-    while(true)
+    bool done = false;
+    while(!done)
     {
         switch(state)
         {
@@ -41,12 +41,13 @@ void ArduinoAlpha::arduinoReadFunc()
             else
             {
 //                usleep(1000);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                done = true;
+//                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
             break;
         case 1:
-            int numRead = 0;
-            while(numRead < 7)
+//            int numRead = 0;
+            if(numRead < 7)
             {
                 int latestRead = read(ardFD,&rxBuf[numRead],7-numRead);//read 7 bytes
                 if(latestRead > 0)
@@ -56,19 +57,23 @@ void ArduinoAlpha::arduinoReadFunc()
                 else
                 {
 //                    usleep(1000);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    done = true;
+//                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
-            int tmpAlpha = ((rxBuf[0] << 8) | rxBuf[1]);
-            if(tmpAlpha > 2500)
-            {
-                tmpAlpha -= 65536;
+            else{
+                numRead = 0;
+                int tmpAlpha = ((rxBuf[0] << 8) | rxBuf[1]);
+                if(tmpAlpha > 2500)
+                {
+                    tmpAlpha -= 65536;
+                }
+                inputStruct.alpha = ((float)tmpAlpha)/50.0;
+                inputStruct.pfwd  = ((float)((rxBuf[2] << 8) | rxBuf[3]));
+                inputStruct.p45   = ((float)((rxBuf[4] << 8) | rxBuf[5]));
+                arduinoInputQueue.push(inputStruct);
+                state = 0;
             }
-            inputStruct.alpha = ((float)tmpAlpha)/50.0;
-            inputStruct.pfwd  = ((float)((rxBuf[2] << 8) | rxBuf[3]));
-            inputStruct.p45   = ((float)((rxBuf[4] << 8) | rxBuf[5]));
-            arduinoInputQueue.push(inputStruct);
-            state = 0;
             break;
         }// switch end
     }// while end
@@ -80,8 +85,7 @@ int  ArduinoAlpha::init()
     if(ardFD == -1)
         return -1;
 
-    if(tcgetattr(ardFD, &config) < 0)
-        //printf(" FAILED TO GET CONFIG DATA\n");
+    if(tcgetattr(ardFD, &config) < 0);
     config.c_iflag &= ~(IGNBRK | BRKINT | ICRNL |
                         INLCR | PARMRK | INPCK | ISTRIP | IXON);
     config.c_oflag = 0;
@@ -102,20 +106,26 @@ int  ArduinoAlpha::init()
 }
 
 
-std::queue<arduinoDataStruct> ArduinoAlpha::getLast_flush(){
-    if(!arduinoInputQueue.empty()){
-      arduinoDataStruct tmp = arduinoInputQueue.back();
+bool ArduinoAlpha::getLast_flush(arduinoDataStruct* data){
+//    arduinoDataStruct tmp1 = arduinoInputQueue.front();
+    if(this->hasData()){
+//      arduinoDataStruct tmp = arduinoInputQueue.back();
+      memcpy(data,&arduinoInputQueue.back(),sizeof(arduinoDataStruct));
+//      data = arduinoInputQueue.back();
       while(!arduinoInputQueue.empty()){
         arduinoInputQueue.pop();
-      return tmp;
       }
-    else return NULL;
-}
-std::queue<arduinoDataStruct> ArduinoAlpha::getNext(){
-    if(!arduinoInputQueue.empty()){
-      return arduinoInputQueue.front();
+      return true;
     }
-    else return NULL;
+    else return false;
+}
+bool ArduinoAlpha::getNext(arduinoDataStruct* data){
+    if(this->hasData()){
+      memcpy(data,&arduinoInputQueue.front(),sizeof(arduinoDataStruct));
+//      data = arduinoInputQueue.front();
+      return true;
+    }
+    else return false;
 }
 
 bool ArduinoAlpha::hasData(){
