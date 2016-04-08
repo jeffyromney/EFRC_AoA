@@ -400,6 +400,7 @@ int main(int argc, char *argv[])
                                   rawImu.gyro[2]*deg2rad,\
                                   rawImu.gyro[0]*deg2rad,\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
                                   sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
                                   readData.alt*M2FT);
 
@@ -691,6 +692,7 @@ int main(int argc, char *argv[])
                                   rawImu.gyro[0]*deg2rad,\
                                   rawImu.gyro[1]*deg2rad,\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
                                   sqrt(sq(CMPFilter.output.vNed[0]) + sq(CMPFilter.output.vNed[1]) + sq(CMPFilter.output.vNed[2]))*M2FT,\
                                   CMPFilter.output.ned[2]*M2FT);
 
@@ -736,7 +738,10 @@ int main(int argc, char *argv[])
             try
             {
                 //write(sockfd,&writeBuier,numWritten);
-                write(sockfd,&msgOut.data,sizeof(msgOut));
+                char tmpBuffer[400];
+                int foo = sprintf(tmpBuffer, "\n%f  %f",(float)ABCMPFilter.getAlpha(), (float)ABCMPFilter.getBeta());
+                write(sockfd,&tmpBuffer,foo);
+//                write(sockfd,&msgOut.data,sizeof(msgOut));
             }
             catch(int e)
             {
