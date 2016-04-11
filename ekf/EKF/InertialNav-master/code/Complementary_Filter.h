@@ -41,7 +41,7 @@ class Complementary_Filter
     inline float integrate(float un,float un1,float yn)
     {   return ((T*(un1+un)+2*yn)/2);    }
 
-    inline float differentiate(float un, float un1, float yn)
+    inline float differentiate(float un, float un1)
     {   return (un1-un/T);   }
 
     inline float low_pass(float un, float un1, float un2, float yn, float yn1)
@@ -68,7 +68,7 @@ class Complementary_Filter
     void init(float Theta_l, float Phi_l, float ny_l, float r_l, float p_l, float v_l, float Alpha_v_l, float V_1_l, float h_1_l)
     {
         Theta = Theta_l; Phi = Phi_l; ny = ny_l; r = r_l; p = p_l; v = v_l; V_1 = V_1_l; h_1 = h_1_l; Alpha_v_1 = Alpha_v_l;
-        Alpha_i_1 = cos(Phi) ~= 0 ? Alpha_Inertial(sine_G, Theta, Beta_i_1, Phi) : Alpha_i_1;
+        Alpha_i_1 = cos(Phi) != 0 ? Alpha_Inertial(sine_G, Theta, Beta_i_1, Phi) : Alpha_i_1;
         Beta_dot_i_1 = V_1 > 0 ? Beta_dot_Inertial(g, V_1, Beta_i_1, V_dot_1, ny, Theta, Phi, r, Alpha_i_1, p) : Beta_dot_i_1;
         Beta_v_1 = V_1 > 0 ? atan(v/V_1) : Beta_v_1;
     }
@@ -108,7 +108,7 @@ class Complementary_Filter
         h_dot_2 = differentiate(h_1, h_2);
         V_dot_2 = differentiate(V_1, V_2);
         sine_G = V_2 > 0 ? h_dot_2/V_2 : (sine_G > 1 ? 1 : (sine_G < - 1 ? -1 : sine_G));
-        Alpha_i_2 = cos(Phi) ~= 0 ? Alpha_Inertial(sine_G, Theta, Beta_cf_1, Phi) : Alpha_i_2;
+        Alpha_i_2 = cos(Phi) != 0 ? Alpha_Inertial(sine_G, Theta, Beta_cf_1, Phi) : Alpha_i_2;
         Beta_dot_i_2 = V_2 > 0 ? Beta_dot_Inertial(g, V_2, Beta_cf_1, V_dot_2, ny, Theta, Phi, r, Alpha_i_2, p) : Beta_dot_i_2;
         Beta_i_2 = integrate(Beta_dot_i_1, Beta_dot_i_2, Beta_i_1);
         // High-Pass Filter
