@@ -96,6 +96,7 @@ uint64_t msecEndTime = 0;
 float gpsGndSpd = 0;
 float gpsCourse = 0;
 float gpsVelD = 0;
+long long  gpsTimeUTC;
 float posNED[3] = {0,0,0};
 bool newDataGps = false;
 struct gpsDataStruct
@@ -110,6 +111,7 @@ struct gpsDataStruct
     float velE;
     float velD;
     int status;
+    long long utcTime;
 };
 // Queue to hold incoming gpsData.
 std::queue<gpsDataStruct> gpsInputQueue;
@@ -308,7 +310,8 @@ void readAlpha()
 int main(int argc, char *argv[])
 {
 
-
+    int initCounter = 0;
+    bool ABCMPFilterInit = false;
     A = -16.908083; // These values must be adjusted for individual
     B = 42.415008; // probes and probe locations
 
@@ -396,14 +399,24 @@ int main(int argc, char *argv[])
     CMPFilter.SetiConst(1 - CMPFilter.GetgConst());
     ABCMPFilter.init(CMPFilter.output.euler[1],\
                                   readData.euler[0],\
-                                  rawImu.accel[1]*M2FT,\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
+                                  rawImu.gyro[2],\
+                                  rawImu.gyro[0],\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
+                                  sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
+                                  readData.alt*M2FT);
+    printf("\n%f,%f,%f,%f,%f,%f,%f,%f,%f",CMPFilter.output.euler[1],\
+                                  readData.euler[0],\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
                                   rawImu.gyro[2]*deg2rad,\
                                   rawImu.gyro[0]*deg2rad,\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
                                   sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
                                   readData.alt*M2FT);
 
-    printf("Filter start\n");
+    printf("\nFilter start\n");
 
     readTimingData();
 
@@ -455,7 +468,7 @@ int main(int argc, char *argv[])
         }
         else if (_ekf->statesInitialised)
         {
-
+            initCounter++;
             // Run the strapdown INS equations every IMU update
             _ekf->UpdateStrapdownEquationsNED();
 
@@ -648,6 +661,34 @@ int main(int argc, char *argv[])
                        ((ekf_report.imuTimeout) ? "IMU " : ""));
             }
         }
+
+        if(_ekf->statesInitialised && initCounter > 20 && !ABCMPFilterInit){
+            ABCMPFilterInit = true;
+//piData.alpha*deg2rad,
+            ABCMPFilter.init(CMPFilter.output.euler[1],\
+                                  readData.euler[0],\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
+                                  rawImu.gyro[2],\
+                                  rawImu.gyro[0],\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
+                                  sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
+                                  readData.alt*M2FT);
+            printf("\nINIT: %f,%f,%f,%f,%f,%f,%f,%f,%f",CMPFilter.output.euler[1],\
+                                  readData.euler[0],\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
+                                  rawImu.gyro[2],\
+                                  rawImu.gyro[0],\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
+                                  sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
+                                  readData.alt*M2FT);
+
+
+
+        }
+//        else
+//            printf("%d %d %d", _ekf->statesInitialised, initCounter > 20, !ABCMPFilterInit);
         // debug output
         //printf("Euler Angle Diierence = %3.1f , %3.1f , %3.1f deg\n", rad2deg*eulerDif[0],rad2deg*eulerDif[1],rad2deg*eulerDif[2]);
         if (true) //cT - pOutputT >= outputPeriod){
@@ -687,10 +728,11 @@ int main(int argc, char *argv[])
             //	);
             ABCMPFilter.runFilter(CMPFilter.output.euler[1],\
                                   CMPFilter.output.euler[0],\
-                                  rawImu.accel[1]*M2FT,\
-                                  rawImu.gyro[0]*deg2rad,\
-                                  rawImu.gyro[1]*deg2rad,\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
+                                  rawImu.gyro[0],\
+                                  rawImu.gyro[1],\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
                                   sqrt(sq(CMPFilter.output.vNed[0]) + sq(CMPFilter.output.vNed[1]) + sq(CMPFilter.output.vNed[2]))*M2FT,\
                                   CMPFilter.output.ned[2]*M2FT);
 
@@ -715,7 +757,7 @@ int main(int argc, char *argv[])
 
 
             OutMessageU_t msgOut = {0x0A,0xA0,\
-                                    (float)_ekf->dtIMU,(double)cT,\
+                                    (long long)gpsTimeUTC,(double)cT,\
                                     (float)_ekf->velNED[0],(float)_ekf->velNED[1],(float)_ekf->velNED[2],\
                                     (float)_ekf->posNE[0], (float)_ekf->posNE[1],(float)_ekf->hgtMea,\
                                     (float)eulerEst[0]*rad2deg, (float)eulerEst[1]*rad2deg, (float)eulerEst[2]*rad2deg,
@@ -736,6 +778,9 @@ int main(int argc, char *argv[])
             try
             {
                 //write(sockfd,&writeBuier,numWritten);
+//                char tmpBuffer[400];
+//                int foo = sprintf(tmpBuffer, "\n%f  %f",(float)ABCMPFilter.getAlpha(), (float)ABCMPFilter.getBeta());
+//                write(sockfd,&tmpBuffer,foo);
                 write(sockfd,&msgOut.data,sizeof(msgOut));
             }
             catch(int e)
@@ -743,7 +788,7 @@ int main(int argc, char *argv[])
                 printf("\nException Thrown: %d\n",e);
             }
 //        printf("\n%d",sizeof(msgOut));
-            printf("\n%f %f %f  --  %f %f %f",piData.alpha,piData.pfwd, piData.p45, ardData.alpha,ardData.pfwd, ardData.p45);
+//            printf("\n%f %f %f  --  %f %f %f",piData.alpha,piData.pfwd, piData.p45, ardData.alpha,ardData.pfwd, ardData.p45);
             for(int i=0 ; i < numWritten ; i ++ )
             {
                 //std::cout << writeBuffer[i];
@@ -883,6 +928,8 @@ void readGpsData()
         readData.vNed[1] = inputData.velE;
         readData.vNed[2] = inputData.velD;
         readData.dTg = gpsDt * 0.001f;
+
+        gpsTimeUTC = inputData.utcTime;
     }
 }
 
@@ -1113,6 +1160,18 @@ void gpsParser()
                 gpsDataIn.velE = ((float)inData.parsed.velE)*1E-3;
                 gpsDataIn.velD = ((float)inData.parsed.velD)*1E-3;
                 gpsDataIn.status = (inData.parsed.fixType);
+                tm lDate;
+                lDate.tm_sec = (double)inData.parsed.second + (((double)inData.parsed.nano)*.000000001);
+                lDate.tm_min = inData.parsed.minute;
+                lDate.tm_hour = inData.parsed.hour;
+                lDate.tm_mday = inData.parsed.day;
+                lDate.tm_mon = inData.parsed.month - 1;
+                lDate.tm_year = inData.parsed.year - 1900;
+                time_t gpsTimeEpoch = mktime(&lDate);
+                gpsDataIn.utcTime = (long long)gpsTimeEpoch;
+                gpsDataIn.utcTime *= 1000;
+                gpsDataIn.utcTime += (long long)((double)inData.parsed.nano*.000001);
+//                gpsDataIn.utcTime = (gpsDataIn.utcTime % 1000 == 0)? gpsDataIn.utcTime + 1000 : gpsDataIn.utcTime;
                 gpsInputQueue.push(gpsDataIn);
                 pGpsT = cT;
 //          printf(" %4d %2d %2d %2d %2d %2d  --  Lat: % 2.8f Lon: % 3.8f Alt: % 4.2f velD: % 3.3f Fix Type: %1d Valid: %d\n",
