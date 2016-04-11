@@ -397,16 +397,16 @@ int main(int argc, char *argv[])
     CMPFilter.SetiConst(1 - CMPFilter.GetgConst());
     ABCMPFilter.init(CMPFilter.output.euler[1],\
                                   readData.euler[0],\
-                                  rawImu.accel[1]*M2FT,\
-                                  rawImu.gyro[2]*deg2rad,\
-                                  rawImu.gyro[0]*deg2rad,\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
+                                  rawImu.gyro[2],\
+                                  rawImu.gyro[0],\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
                                   piData.alpha*deg2rad,\
                                   sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
                                   readData.alt*M2FT);
     printf("\n%f,%f,%f,%f,%f,%f,%f,%f,%f",CMPFilter.output.euler[1],\
                                   readData.euler[0],\
-                                  rawImu.accel[1]*M2FT,\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
                                   rawImu.gyro[2]*deg2rad,\
                                   rawImu.gyro[0]*deg2rad,\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
@@ -660,22 +660,23 @@ int main(int argc, char *argv[])
             }
         }
 
-        if(_ekf->statesInitialised && initCounter > 500 && !ABCMPFilterInit){
+        if(_ekf->statesInitialised && initCounter > 20 && !ABCMPFilterInit){
             ABCMPFilterInit = true;
+//piData.alpha*deg2rad,
             ABCMPFilter.init(CMPFilter.output.euler[1],\
                                   readData.euler[0],\
-                                  rawImu.accel[1]*M2FT,\
-                                  rawImu.gyro[2]*deg2rad,\
-                                  rawImu.gyro[0]*deg2rad,\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
+                                  rawImu.gyro[2],\
+                                  rawImu.gyro[0],\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
                                   piData.alpha*deg2rad,\
                                   sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
                                   readData.alt*M2FT);
-            printf("\nINIT: ** %f,%f,%f,%f,%f,%f,%f,%f,%f **",CMPFilter.output.euler[1],\
+            printf("\nINIT: %f,%f,%f,%f,%f,%f,%f,%f,%f",CMPFilter.output.euler[1],\
                                   readData.euler[0],\
-                                  rawImu.accel[1]*M2FT,\
-                                  rawImu.gyro[2]*deg2rad,\
-                                  rawImu.gyro[0]*deg2rad,\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
+                                  rawImu.gyro[2],\
+                                  rawImu.gyro[0],\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
                                   piData.alpha*deg2rad,\
                                   sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
@@ -684,6 +685,8 @@ int main(int argc, char *argv[])
 
 
         }
+//        else
+//            printf("%d %d %d", _ekf->statesInitialised, initCounter > 20, !ABCMPFilterInit);
         // debug output
         //printf("Euler Angle Diierence = %3.1f , %3.1f , %3.1f deg\n", rad2deg*eulerDif[0],rad2deg*eulerDif[1],rad2deg*eulerDif[2]);
         if (true) //cT - pOutputT >= outputPeriod){
@@ -723,9 +726,9 @@ int main(int argc, char *argv[])
             //	);
             ABCMPFilter.runFilter(CMPFilter.output.euler[1],\
                                   CMPFilter.output.euler[0],\
-                                  rawImu.accel[1]*M2FT,\
-                                  rawImu.gyro[0]*deg2rad,\
-                                  rawImu.gyro[1]*deg2rad,\
+                                  rawImu.accel[1]/GRAVITY_MSS,\
+                                  rawImu.gyro[0],\
+                                  rawImu.gyro[1],\
                                   getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
                                   piData.alpha*deg2rad,\
                                   sqrt(sq(CMPFilter.output.vNed[0]) + sq(CMPFilter.output.vNed[1]) + sq(CMPFilter.output.vNed[2]))*M2FT,\
