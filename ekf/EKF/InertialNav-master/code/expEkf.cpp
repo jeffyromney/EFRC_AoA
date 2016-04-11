@@ -308,7 +308,8 @@ void readAlpha()
 int main(int argc, char *argv[])
 {
 
-
+    int initCounter = 0;
+    bool ABCMPFilterInit = false;
     A = -16.908083; // These values must be adjusted for individual
     B = 42.415008; // probes and probe locations
 
@@ -403,8 +404,17 @@ int main(int argc, char *argv[])
                                   piData.alpha*deg2rad,\
                                   sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
                                   readData.alt*M2FT);
+    printf("\n%f,%f,%f,%f,%f,%f,%f,%f,%f",CMPFilter.output.euler[1],\
+                                  readData.euler[0],\
+                                  rawImu.accel[1]*M2FT,\
+                                  rawImu.gyro[2]*deg2rad,\
+                                  rawImu.gyro[0]*deg2rad,\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
+                                  sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
+                                  readData.alt*M2FT);
 
-    printf("Filter start\n");
+    printf("\nFilter start\n");
 
     readTimingData();
 
@@ -456,7 +466,7 @@ int main(int argc, char *argv[])
         }
         else if (_ekf->statesInitialised)
         {
-
+            initCounter++;
             // Run the strapdown INS equations every IMU update
             _ekf->UpdateStrapdownEquationsNED();
 
@@ -649,6 +659,31 @@ int main(int argc, char *argv[])
                        ((ekf_report.imuTimeout) ? "IMU " : ""));
             }
         }
+
+        if(_ekf->statesInitialised && initCounter > 500 && !ABCMPFilterInit){
+            ABCMPFilterInit = true;
+            ABCMPFilter.init(CMPFilter.output.euler[1],\
+                                  readData.euler[0],\
+                                  rawImu.accel[1]*M2FT,\
+                                  rawImu.gyro[2]*deg2rad,\
+                                  rawImu.gyro[0]*deg2rad,\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
+                                  sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
+                                  readData.alt*M2FT);
+            printf("\nINIT: ** %f,%f,%f,%f,%f,%f,%f,%f,%f **",CMPFilter.output.euler[1],\
+                                  readData.euler[0],\
+                                  rawImu.accel[1]*M2FT,\
+                                  rawImu.gyro[2]*deg2rad,\
+                                  rawImu.gyro[0]*deg2rad,\
+                                  getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT,\
+                                  piData.alpha*deg2rad,\
+                                  sqrt(sq(readData.vNed[0]) + sq(readData.vNed[1]) + sq(readData.vNed[2]))*M2FT,\
+                                  readData.alt*M2FT);
+
+
+
+        }
         // debug output
         //printf("Euler Angle Diierence = %3.1f , %3.1f , %3.1f deg\n", rad2deg*eulerDif[0],rad2deg*eulerDif[1],rad2deg*eulerDif[2]);
         if (true) //cT - pOutputT >= outputPeriod){
@@ -738,17 +773,17 @@ int main(int argc, char *argv[])
             try
             {
                 //write(sockfd,&writeBuier,numWritten);
-                char tmpBuffer[400];
-                int foo = sprintf(tmpBuffer, "\n%f  %f",(float)ABCMPFilter.getAlpha(), (float)ABCMPFilter.getBeta());
-                write(sockfd,&tmpBuffer,foo);
-//                write(sockfd,&msgOut.data,sizeof(msgOut));
+//                char tmpBuffer[400];
+//                int foo = sprintf(tmpBuffer, "\n%f  %f",(float)ABCMPFilter.getAlpha(), (float)ABCMPFilter.getBeta());
+//                write(sockfd,&tmpBuffer,foo);
+                write(sockfd,&msgOut.data,sizeof(msgOut));
             }
             catch(int e)
             {
                 printf("\nException Thrown: %d\n",e);
             }
 //        printf("\n%d",sizeof(msgOut));
-            printf("\n%f %f %f  --  %f %f %f",piData.alpha,piData.pfwd, piData.p45, ardData.alpha,ardData.pfwd, ardData.p45);
+//            printf("\n%f %f %f  --  %f %f %f",piData.alpha,piData.pfwd, piData.p45, ardData.alpha,ardData.pfwd, ardData.p45);
             for(int i=0 ; i < numWritten ; i ++ )
             {
                 //std::cout << writeBuffer[i];
