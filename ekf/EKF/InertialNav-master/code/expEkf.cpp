@@ -96,6 +96,7 @@ uint64_t msecEndTime = 0;
 float gpsGndSpd = 0;
 float gpsCourse = 0;
 float gpsVelD = 0;
+long long  gpsTimeUTC;
 float posNED[3] = {0,0,0};
 bool newDataGps = false;
 struct gpsDataStruct
@@ -110,6 +111,7 @@ struct gpsDataStruct
     float velE;
     float velD;
     int status;
+    long long utcTime;
 };
 // Queue to hold incoming gpsData.
 std::queue<gpsDataStruct> gpsInputQueue;
@@ -755,7 +757,7 @@ int main(int argc, char *argv[])
 
 
             OutMessageU_t msgOut = {0x0A,0xA0,\
-                                    (float)_ekf->dtIMU,(double)cT,\
+                                    (long long)gpsTimeUTC,(double)cT,\
                                     (float)_ekf->velNED[0],(float)_ekf->velNED[1],(float)_ekf->velNED[2],\
                                     (float)_ekf->posNE[0], (float)_ekf->posNE[1],(float)_ekf->hgtMea,\
                                     (float)eulerEst[0]*rad2deg, (float)eulerEst[1]*rad2deg, (float)eulerEst[2]*rad2deg,
@@ -926,6 +928,8 @@ void readGpsData()
         readData.vNed[1] = inputData.velE;
         readData.vNed[2] = inputData.velD;
         readData.dTg = gpsDt * 0.001f;
+
+        gpsTimeUTC = inputData.utcTime;
     }
 }
 
@@ -1156,6 +1160,18 @@ void gpsParser()
                 gpsDataIn.velE = ((float)inData.parsed.velE)*1E-3;
                 gpsDataIn.velD = ((float)inData.parsed.velD)*1E-3;
                 gpsDataIn.status = (inData.parsed.fixType);
+                tm lDate;
+                lDate.tm_sec = (double)inData.parsed.second + (((double)inData.parsed.nano)*.000000001);
+                lDate.tm_min = inData.parsed.minute;
+                lDate.tm_hour = inData.parsed.hour;
+                lDate.tm_mday = inData.parsed.day;
+                lDate.tm_mon = inData.parsed.month - 1;
+                lDate.tm_year = inData.parsed.year - 1900;
+                time_t gpsTimeEpoch = mktime(&lDate);
+                gpsDataIn.utcTime = (long long)gpsTimeEpoch;
+                gpsDataIn.utcTime *= 1000;
+                gpsDataIn.utcTime += (long long)((double)inData.parsed.nano*.000001);
+//                gpsDataIn.utcTime = (gpsDataIn.utcTime % 1000 == 0)? gpsDataIn.utcTime + 1000 : gpsDataIn.utcTime;
                 gpsInputQueue.push(gpsDataIn);
                 pGpsT = cT;
 //          printf(" %4d %2d %2d %2d %2d %2d  --  Lat: % 2.8f Lon: % 3.8f Alt: % 4.2f velD: % 3.3f Fix Type: %1d Valid: %d\n",

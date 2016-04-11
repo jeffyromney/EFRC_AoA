@@ -4,7 +4,7 @@
 typedef struct __attribute__((packed)) OutMessage_t
 {
 	uint8_t start[2];
-	float dT;
+	long long  gpsTimeUTC;
 	double cT;
 	float ekfVelN;
 	float ekfVelE;
