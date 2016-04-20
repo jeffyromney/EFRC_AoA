@@ -2,7 +2,7 @@
 #include <cstring>
 #include <math.h>
 #include <stdio.h>
-
+// Complementary Filter
 Complementary::Complementary()
 {
     pData = data = deltas = output = FILTER_DATA_INIT;
