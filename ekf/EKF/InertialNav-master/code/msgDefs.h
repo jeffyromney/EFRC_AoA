@@ -33,6 +33,9 @@ typedef struct __attribute__((packed)) OutMessage_t
 	double gpsLat;
 	double gpsLon;
 	float gpsAlt;
+    float gpsVelN;
+    float gpsVelE;
+    float gpsVelD;
 	float accelX;
 	float accelY;
 	float accelZ;

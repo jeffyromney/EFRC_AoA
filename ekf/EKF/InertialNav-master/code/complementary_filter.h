@@ -53,11 +53,10 @@ class complementary_filter
     // Initialize
     int init(float Alt, float Beta_v, float Alpha_v, float Theta, float Phi, float Vel, float ny, float r, float p, float nz, float q)
     {
-        float V_dot;
-    	if(Vel>0.0 && cos(Phi)!=0.0)
+        float sine_G, V_dot;
+    	if(Vel>0 && cos(Phi)!=0)
     	{
-          	printf("BeginInit: h[0]=%f h[1]=%f V[0]=%f V[1]=%f B_dot_i[0]=%f B_dot_i[1]=%f B_i[0]=%f B_i[1]=%f B_i[2]=%f B_if[0]=%f B_if[1]=%f B_if[2]=%f B_v[0]=%f B_v[1]=%f B_v[2]=%f  B_vf[0]=%f B_vf[1]=%f B_vf[2]=%f B_cf[0]=%f B_cf[1]=%f \n ", h[0], h[1], V[0], V[1], B_dot_i[0], B_dot_i[1], B_i[0], B_i[1], B_i[2], B_if[0], B_if[1], B_if[2], B_v[0], B_v[1], B_v[2], B_vf[0], B_vf[1], B_vf[2], B_cf[0], B_cf[1]);            
-            h[0] = Alt;
+    		h[0] = Alt;
             V[0] = Vel;
 			B_v[0] = Beta_v; 
             B_v[1] = Beta_v;
@@ -74,6 +73,7 @@ class complementary_filter
             A_v[1] = Alpha_v;
             A_vf[0] = Alpha_v; 
             A_vf[1] = Alpha_v;
+            sine_G = 0;
             A_i[0] = Alpha_v; 
             A_i[1] = Alpha_v; 
             A_i[2] = Alpha_v; // A_i[2] is over-written during runtime
@@ -84,8 +84,7 @@ class complementary_filter
             V_dot = 0;
             B_dot_i[0] = Beta_dot_i(g, Vel, ny, Theta, Phi, B_cf[1], V_dot, r, A_i[1], p);
             A_dot_i[0] = Alpha_dot_i(g, Vel, nz, Theta, Phi, A_v[1], V_dot, q, B_i[1], p);
-          	printf("EndInit: h[0]=%f h[1]=%f V[0]=%f V[1]=%f B_dot_i[0]=%f B_dot_i[1]=%f B_i[0]=%f B_i[1]=%f B_i[2]=%f B_if[0]=%f B_if[1]=%f B_if[2]=%f B_v[0]=%f B_v[1]=%f B_v[2]=%f  B_vf[0]=%f B_vf[1]=%f B_vf[2]=%f B_cf[0]=%f B_cf[1]=%f \n ", h[0], h[1], V[0], V[1], B_dot_i[0], B_dot_i[1], B_i[0], B_i[1], B_i[2], B_if[0], B_if[1], B_if[2], B_v[0], B_v[1], B_v[2], B_vf[0], B_vf[1], B_vf[2], B_cf[0], B_cf[1]);                    	
-            return 1;
+        	return 1;
 		}
 		else
 		return 0;
@@ -121,9 +120,8 @@ class complementary_filter
     {
         float h_dot, V_dot, sine_G;
         
-        if(Vel>0.0 && cos(Phi)!=0.0)
+        if(Vel>0 && cos(Phi)!=0)
         {
-            printf("BeginrunFilter: h[0]=%f h[1]=%f V[0]=%f V[1]=%f B_dot_i[0]=%f B_dot_i[1]=%f B_i[0]=%f B_i[1]=%f B_i[2]=%f B_if[0]=%f B_if[1]=%f B_if[2]=%f B_v[0]=%f B_v[1]=%f B_v[2]=%f  B_vf[0]=%f B_vf[1]=%f B_vf[2]=%f B_cf[0]=%f B_cf[1]=%f \n ", h[0], h[1], V[0], V[1], B_dot_i[0], B_dot_i[1], B_i[0], B_i[1], B_i[2], B_if[0], B_if[1], B_if[2], B_v[0], B_v[1], B_v[2], B_vf[0], B_vf[1], B_vf[2], B_cf[0], B_cf[1]);       
             T = (smplng_tm>0)? smplng_tm : T;
             Z = 2*Tau/T;
             A_v[2] = Alpha_v;
@@ -145,8 +143,8 @@ class complementary_filter
             A_if[2] = High_Pass(A_i[0], A_i[1], A_i[2], A_if[0], A_if[1], Z);
             A_vf[2] = Low_Pass(A_v[0], A_v[1], A_v[2], A_vf[0], A_vf[1], Z);
             A_cf[1] = A_vf[2] + A_if[2];
-            update();
-            printf("EndrunFilter: h[0]=%f h[1]=%f V[0]=%f V[1]=%f B_dot_i[0]=%f B_dot_i[1]=%f B_i[0]=%f B_i[1]=%f B_i[2]=%f B_if[0]=%f B_if[1]=%f B_if[2]=%f B_v[0]=%f B_v[1]=%f B_v[2]=%f  B_vf[0]=%f B_vf[1]=%f B_vf[2]=%f B_cf[0]=%f B_cf[1]=%f \n ", h[0], h[1], V[0], V[1], B_dot_i[0], B_dot_i[1], B_i[0], B_i[1], B_i[2], B_if[0], B_if[1], B_if[2], B_v[0], B_v[1], B_v[2], B_vf[0], B_vf[1], B_vf[2], B_cf[0], B_cf[1]);               }
+            update(); 
+        }
     }
     
     // Get Alpha-Inertial

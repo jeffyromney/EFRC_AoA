@@ -278,7 +278,7 @@ void signalHandler( int signum )
     // terminate program
     close(sockfd);
     portno = 5005;
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0)
         error(" ERROR opening socket ");
     server = gethostbyname("155.31.242.65");
@@ -391,7 +391,7 @@ int main(int argc, char *argv[])
     }
 
     portno = 5005;
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0)
         printf(" ERROR opening socket ");
     server = gethostbyname("155.31.242.65");
@@ -405,8 +405,10 @@ int main(int argc, char *argv[])
           (char *)&serv_addr.sin_addr.s_addr,
           server->h_length);
     serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-        printf(" ERROR connecting ");
+//    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+//        printf(" ERROR connecting ");
+
+
     printf("Socket Done");
 
 
@@ -824,7 +826,7 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
             try
             {
                 //write(sockfd,&writeBuier,numWritten);
-                write(sockfd,&msgOut.data,sizeof(msgOut));
+                sendto(sockfd,&msgOut.data,sizeof(msgOut),0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
             }
             catch(int e)
             {

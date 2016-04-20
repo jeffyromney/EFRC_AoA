@@ -273,15 +273,15 @@ void error(const char *msg)
 
 void signalHandler( int signum )
 {
-    printf(" INTERUPT SIGNAL: %d ", signum);
+//    printf(" INTERUPT SIGNAL: %d ", signum);
     // cleanup and close up Stuff here
     // terminate program
     close(sockfd);
-    portno = 5005;
+    portno = 55005;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
         error(" ERROR opening socket ");
-    server = gethostbyname("155.31.242.65");
+    server = gethostbyname("155.31.242.127");
     if (server == NULL)
     {
         fprintf(stderr," ERROR, no such host ");
@@ -292,8 +292,9 @@ void signalHandler( int signum )
           (char *)&serv_addr.sin_addr.s_addr,
           server->h_length);
     serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-        printf(" ERROR connecting ");
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0){
+//        printf(" ERROR connecting ");
+    }
 
 }
 
@@ -390,11 +391,11 @@ int main(int argc, char *argv[])
         printf("ERROR opening Arduino Port\n");
     }
 
-    portno = 5005;
+    portno = 55005;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
         printf(" ERROR opening socket ");
-    server = gethostbyname("155.31.242.65");
+    server = gethostbyname("155.31.242.127");
     if (server == NULL)
     {
         fprintf(stderr,"ERROR, no such host");

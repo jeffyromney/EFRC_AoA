@@ -20,7 +20,7 @@
 #include "msgDefs.h"
 #include "complementary.h"
 #include "arduinoalpha.h"
-#include "Complementary_Filter.h"
+#include "complementary_filter.h"
 
 
 #define GRAVITY_MSS 9.80665f
@@ -278,7 +278,7 @@ void signalHandler( int signum )
     // terminate program
     close(sockfd);
     portno = 5005;
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0)
         error(" ERROR opening socket ");
     server = gethostbyname("155.31.242.65");
@@ -391,7 +391,7 @@ int main(int argc, char *argv[])
     }
 
     portno = 5005;
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0)
         printf(" ERROR opening socket ");
     server = gethostbyname("155.31.242.65");
@@ -405,8 +405,10 @@ int main(int argc, char *argv[])
           (char *)&serv_addr.sin_addr.s_addr,
           server->h_length);
     serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-        printf(" ERROR connecting ");
+//    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+//        printf(" ERROR connecting ");
+
+
     printf("Socket Done");
 
 
@@ -737,12 +739,14 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
 
             //Update alpha/beta running averages
             float betaTmp = atan((getVelY(CMPFilter.output.euler, CMPFilter.output.vNed)*M2FT)/(sqrt(sq(CMPFilter.output.vNed[0]) + sq(CMPFilter.output.vNed[1]) + sq(CMPFilter.output.vNed[2]))*M2FT));
+            if(isnan(betaTmp)) betaTmp = 0.0;
             betaSum += betaTmp;
             betaSum -= betaBuf[betaInd];
             betaBuf[betaInd] = betaTmp;
             betaInd = (betaInd + 1) % 10;
 
             float alphaTmp = piData.alpha*deg2rad;
+            if(isnan(alphaTmp)) alphaTmp = 0.0;
             alphaSum += alphaTmp;
             alphaSum -= alphaBuf[alphaInd];
             alphaBuf[betaInd] = alphaTmp;
@@ -766,8 +770,8 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
                                   -rawImu.accel[2]/GRAVITY_MSS,\
                                   rawImu.gyro[1]);
             }
-
-            ABCMPFilter.runFilter(_ekf->dtIMU,
+            else if(ABCMPFilterInit && initCounter > 15){
+                ABCMPFilter.runFilter(_ekf->dtIMU,
                                   betaSum * 0.1,
                                   alphaSum * 0.1,
                                   (float)readData.alt*M2FT,
@@ -779,7 +783,7 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
                                   -rawImu.gyro[0],\
                                   -rawImu.accel[2]/GRAVITY_MSS,\
                                   rawImu.gyro[1]);
-            
+            }
 
             char writeBuffer [400];
             int numWritten = sprintf(writeBuffer, "\nvel,pos,eul,t,gps,ahrs: "
@@ -824,7 +828,7 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
             try
             {
                 //write(sockfd,&writeBuier,numWritten);
-                write(sockfd,&msgOut.data,sizeof(msgOut));
+                sendto(sockfd,&msgOut.data,sizeof(msgOut),0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
             }
             catch(int e)
             {
