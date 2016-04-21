@@ -2,12 +2,14 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <string>
 #include <unistd.h>
 #include <iostream>
+#include <fstream>
 #include <thread> // for multi-threading
 #include <wiringPi.h> //for GPIO functions
 #include <wiringPiI2C.h> //for I2C Functions
@@ -20,7 +22,7 @@
 #include "msgDefs.h"
 #include "complementary.h"
 #include "arduinoalpha.h"
-#include "complementary_filter.h"
+#include "Complementary_Filter.h"
 
 
 #define GRAVITY_MSS 9.80665f
@@ -113,6 +115,7 @@ float gpsGndSpd = 0;
 float gpsCourse = 0;
 float gpsVelD = 0;
 long long  gpsTimeUTC;
+uint32_t gpsTOW;
 float posNED[3] = {0,0,0};
 bool newDataGps = false;
 struct gpsDataStruct
@@ -128,9 +131,15 @@ struct gpsDataStruct
     float velD;
     int status;
     long long utcTime;
+    uint32_t iTOW;
 };
 // Queue to hold incoming gpsData.
 std::queue<gpsDataStruct> gpsInputQueue;
+
+int gpsOffset, lastCT;
+uint32_t currentStep;
+
+
 
 struct termios  configGPS;
 
@@ -250,6 +259,9 @@ int triggered = 0;
 
 //Used for Dummy input
 std::string inStr = std::string();
+int M,D,Y,H,m,S;
+
+
 
 //EKF object
 AttPosEKF   *_ekf;
@@ -333,6 +345,7 @@ void readAlpha()
 int main(int argc, char *argv[])
 {
 
+    std::ofstream logFD;
     int initCounter = 0;
     bool ABCMPFilterInit = false;
     A = -16.908083; // These values must be adjusted for individual
@@ -500,6 +513,10 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
             calcvelNED(_ekf->velNED, gpsCourse, gpsGndSpd, gpsVelD);
 
             _ekf->InitialiseFilter(_ekf->velNED, _ekf->gpsLat, _ekf->gpsLon, _ekf->gpsHgt, 0.0f);
+            char fNameBuf [80];
+            sprintf(fNameBuf,"%d-%d-%d_%d-%d-%d.dat",M,D,Y,H,m,S);
+
+            logFD.open(fNameBuf);
 
         }
         else if (_ekf->statesInitialised)
@@ -785,6 +802,18 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
                                   rawImu.gyro[1]);
             }
 
+
+//            printf("***********************\n\n %lu %lu %d %lu %d \n\n*************************\n",gpsTOW, currentStep, gpsOffset,cT, lastCT);
+            if (!newDataGps) {
+                gpsTOW += cT - lastCT;
+            }
+            else{
+                currentStep = gpsTOW;
+                gpsOffset = 0;
+            }
+            lastCT = cT;
+
+
             char writeBuffer [400];
             int numWritten = sprintf(writeBuffer, "\nvel,pos,eul,t,gps,ahrs: "
                                      "%8.4f,%lu,"
@@ -806,7 +835,7 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
 
 
             OutMessageU_t msgOut = {0x0A,0xA0,\
-                                    (long long)gpsTimeUTC,(double)cT,\
+                                    (uint32_t)gpsTOW,(double)cT,\
                                     (float)_ekf->velNED[0],(float)_ekf->velNED[1],(float)_ekf->velNED[2],\
                                     (float)_ekf->posNE[0], (float)_ekf->posNE[1],(float)_ekf->hgtMea,\
                                     (float)eulerEst[0]*rad2deg, (float)eulerEst[1]*rad2deg, (float)eulerEst[2]*rad2deg,
@@ -818,7 +847,7 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
                                     (double)readData.lat*rad2deg, (double)readData.lon*rad2deg, (float)readData.alt,\
                                     (float)readData.vNed[0],(float)readData.vNed[1],(float)readData.vNed[2],
                                     (float)rawImu.accel[0],(float)rawImu.accel[1],(float)rawImu.accel[2],
-                                    (float)rawImu.gyro[0],(float)rawImu.gyro[1],(float)rawImu.gyro[2],
+                                    (float)rawImu.gyro[0]*rad2deg,(float)rawImu.gyro[1]*rad2deg,(float)rawImu.gyro[2]*rad2deg,
                                     (float)rawImu.mag[0],(float)rawImu.mag[1],(float)rawImu.mag[2],
                                     (float)piData.alpha,(uint16_t)piData.pfwd,(uint16_t)piData.p45,
                                     (float)ardData.alpha,(uint16_t)ardData.pfwd,(uint16_t)ardData.p45,
@@ -829,6 +858,9 @@ memcpy((void *)&HUDservaddr.sin_addr, HUDhp->h_addr_list[0], HUDhp->h_length);
             {
                 //write(sockfd,&writeBuier,numWritten);
                 sendto(sockfd,&msgOut.data,sizeof(msgOut),0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+                if(logFD.is_open()){
+                    logFD.write(msgOut.data,sizeof(msgOut));
+                }
             }
             catch(int e)
             {
@@ -983,7 +1015,7 @@ void readGpsData()
         readData.vNed[1] = inputData.velE;
         readData.vNed[2] = inputData.velD;
         readData.dTg = gpsDt * 0.001f;
-
+        gpsTOW = inputData.iTOW;
         gpsTimeUTC = inputData.utcTime;
     }
 }
@@ -1215,6 +1247,13 @@ void gpsParser()
                 gpsDataIn.velE = ((float)inData.parsed.velE)*1E-3;
                 gpsDataIn.velD = ((float)inData.parsed.velD)*1E-3;
                 gpsDataIn.status = (inData.parsed.fixType);
+                gpsDataIn.iTOW = inData.parsed.iTOW;
+                M = inData.parsed.month;
+                D = inData.parsed.day;
+                Y = inData.parsed.year;
+                H = inData.parsed.hour;
+                m = inData.parsed.minute;
+                S = inData.parsed.second;
                 tm lDate;
                 lDate.tm_sec = (double)inData.parsed.second + (((double)inData.parsed.nano)*.000000001);
                 lDate.tm_min = inData.parsed.minute;
